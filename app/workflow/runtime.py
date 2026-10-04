@@ -27,20 +27,23 @@ class UnverifiedPlatformExecutor:
 
 
 @contextmanager
-def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None, database_url=None):
+def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None, database_url=None,
+               transport="direct"):
     """只有真实来源才启动浏览器；默认运行完全离线。"""
     from contextlib import ExitStack
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     with ExitStack() as stack:
         if adapter is None:
-            if source == "mock":
-                adapter = MockJobAdapter(load_settings().jobs_path)
-            elif source == "boss":
-                session = stack.enter_context(BrowserSession(BOSS, Path("profiles/boss")))
-                adapter = BossAdapter(session)
+            if transport == "mcp":
+                from app.mcp_client import MCPJobAdapter
+                adapter = MCPJobAdapter(source)
+            elif transport == "direct":
+                from app.adapters.factory import open_adapter
+                from app.tools.jobs import ToolCallingAdapter
+                adapter = ToolCallingAdapter(stack.enter_context(open_adapter(source)))
             else:
-                raise ValueError("未知岗位来源")
+                raise ValueError("工具连接方式必须为 direct 或 mcp")
         from app.runtime_config import setting
         database_url = database_url or setting("AGENT_DATABASE_URL")
         if database_url:

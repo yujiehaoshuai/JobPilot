@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--id")
     parser.add_argument("--source", choices=["mock", "boss"], default="mock")
     parser.add_argument("--mode", choices=["offline", "live"], default="offline")
+    parser.add_argument("--transport", choices=["direct", "mcp"], default="direct")
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--query", action="append")
     parser.add_argument("--data", type=Path, default=Path("data/agent"))
@@ -24,7 +25,7 @@ def main():
     run_id = args.id or str(uuid4())
     if args.command != "start" and not args.id:
         parser.error("查看或恢复需要 --id")
-    with open_graph(args.data, source=args.source, mode=args.mode) as (graph, actions):
+    with open_graph(args.data, source=args.source, mode=args.mode, transport=args.transport) as (graph, actions):
         config = graph_config(run_id)
         existing = graph.get_state(config)
         if args.command == "start":
@@ -32,11 +33,12 @@ def main():
                 parser.error("任务编号已存在，请恢复原任务或使用新编号")
             profile = load_candidate(args.candidate or load_settings().candidate_path)
             graph.invoke({"run_id": run_id, "candidate": profile.model_dump(mode="json"),
-                          "queries": args.query or [], "source": args.source, "mode": args.mode}, config)
+                          "queries": args.query or [], "source": args.source, "mode": args.mode,
+                          "transport": args.transport}, config)
         elif not existing.values:
             parser.error("找不到该任务")
-        elif (existing.values["source"], existing.values["mode"]) != (args.source, args.mode):
-            parser.error("恢复时必须使用任务原本的 source 和 mode")
+        elif (existing.values["source"], existing.values["mode"], existing.values.get("transport", "direct")) != (args.source, args.mode, args.transport):
+            parser.error("恢复时必须使用任务原本的 source、mode 和 transport")
         elif args.command == "resume":
             paused = any(task.interrupts for task in existing.tasks)
             graph.invoke(Command(resume=True) if paused else None, config)

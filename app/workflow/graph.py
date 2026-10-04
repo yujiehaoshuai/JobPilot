@@ -23,6 +23,7 @@ class AgentState(TypedDict, total=False):
     queries: list[str]
     source: str
     mode: str
+    transport: str
     jobs: list[dict]
     index: int
     results: list[dict]

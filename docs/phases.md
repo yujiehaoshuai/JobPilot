@@ -49,3 +49,9 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 新增无需前端构建工具的中文 Dashboard：导入 JSON、虚构示例、来源/模型选择、任务记录、恢复、技能证据、全文草稿和逐条批准/拒绝。页面用 textContent 显示外部资料，令牌不写入网页或浏览器持久存储。
 
 120 项测试通过，1 项 PG 测试跳过；`python -m scripts.dashboard_smoke` 在本机 Edge 完成载入、搜索、证据展示、拒绝、模拟批准，控制台无页面错误。人工查看 `data/dashboard-smoke.png`，布局和中文可读。该截图和浏览器测试均使用虚构数据。
+
+## Phase 9
+
+新增普通 JobTools 分派器、Pydantic 工具参数、官方 MCP v1 SDK stdio Server/Client。两条路径都使用相同 Adapter；MCP 增加握手、结构化结果和子进程传输，不替代工作流，也不提供权限隔离沙箱。只暴露 search_jobs/get_job_detail，不开放发送、任意脚本或任意 URL。
+
+122 项测试通过，1 项 PG 测试跳过；真实子进程协议测试返回与普通调用相同岗位。`python -m scripts.mcp_smoke` 验证图通过 MCP 读取岗位并停在人工审批。CLI 增加 `--transport mcp`，API 接受 `transport: mcp`。本阶段安装 SDK 1.30.0，明确限定 `<2`，避免混用 v2 接口。

@@ -28,6 +28,7 @@ class StartRun(DomainModel):
     candidate: CandidateProfile
     source: Literal["mock", "boss"] = "mock"
     mode: Literal["offline", "live"] = "offline"
+    transport: Literal["direct", "mcp"] = "direct"
     queries: list[str] = Field(default_factory=list, max_length=5)
 
 
@@ -120,7 +121,7 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     def start(body: StartRun):
         run_id = str(uuid4())
         incoming = {"run_id": run_id, **body.model_dump(mode="json")}
-        runs.create(run_id, {"source": body.source, "mode": body.mode, "input": incoming,
+        runs.create(run_id, {"source": body.source, "mode": body.mode, "transport": body.transport, "input": incoming,
                              "snapshot": {}, "interrupts": [], "error": None})
         worker.submit(run_id)
         return {"id": run_id}
