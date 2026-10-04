@@ -30,7 +30,8 @@ class GreetingGenerator:
             raise StructuredOutputError("草稿使用了未授权或过多的证据")
         quotes = [facts[key].evidence for key in ids]
         content = f"您好，我关注到贵司的「{job.title}」岗位。我的相关经历如下：\n"
-        content += "\n".join(f"- {facts[key].skill}（{facts[key].level.value}）：{facts[key].evidence}" for key in ids)
+        levels = {"learning": "正在学习", "project_experience": "项目中使用过", "professional": "工作中使用过"}
+        content += "\n".join(f"- {facts[key].skill}（{levels[facts[key].level.value]}）：{facts[key].evidence}" for key in ids)
         content += "\n希望了解岗位的具体要求，并有机会进一步沟通。"
         return GreetingDraft(job_id=job.id, content=content,
                              used_candidate_evidence=quotes, evidence_ids=ids)

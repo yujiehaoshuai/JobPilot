@@ -1,0 +1,15 @@
+{
+  "description": "人工标注的虚构小样本，含词表外技能和否定句；不能代替真实招聘数据评测。",
+  "cases": [
+    {"id":"backend", "jd":"要求掌握 Python 开发，独立完成接口设计和测试。要求使用 FastAPI 实现后端服务。Redis 加分。", "required":["Python","FastAPI"], "preferred":["Redis"], "matched":["Python","FastAPI"], "partial":[], "missing":["Redis"]},
+    {"id":"learning", "jd":"要求使用 LangGraph 构建有状态工作流。要求使用 Docker 完成部署。", "required":["LangGraph","Docker"], "preferred":[], "matched":[], "partial":["LangGraph"], "missing":["Docker"]},
+    {"id":"rag", "jd":"要求实际使用 RAG 完成检索增强问答，提供可核验的项目说明。", "required":["RAG"], "preferred":[], "matched":["RAG"], "partial":[], "missing":[]},
+    {"id":"unknown-skill", "jd":"必须使用 Go 开发服务，并提供并发编程经验。", "required":["Go"], "preferred":[], "matched":[], "partial":[], "missing":["Go"]},
+    {"id":"negation", "jd":"不要求 Java。要求 Python 实际开发经验。", "required":["Python"], "preferred":[], "matched":["Python"], "partial":[], "missing":[]},
+    {"id":"no-tech", "jd":"招聘文案实习生，负责活动文案整理和排版。", "required":[], "preferred":[], "matched":[], "partial":[], "missing":[]}
+  ],
+  "tools": [
+    {"method":"search", "input":["Python"], "expected_tool":"search_jobs", "expected_arguments":{"queries":["Python"],"limit":50}},
+    {"method":"detail", "expected_tool":"get_job_detail"}
+  ]
+}

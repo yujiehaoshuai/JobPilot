@@ -55,3 +55,9 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 新增普通 JobTools 分派器、Pydantic 工具参数、官方 MCP v1 SDK stdio Server/Client。两条路径都使用相同 Adapter；MCP 增加握手、结构化结果和子进程传输，不替代工作流，也不提供权限隔离沙箱。只暴露 search_jobs/get_job_detail，不开放发送、任意脚本或任意 URL。
 
 122 项测试通过，1 项 PG 测试跳过；真实子进程协议测试返回与普通调用相同岗位。`python -m scripts.mcp_smoke` 验证图通过 MCP 读取岗位并停在人工审批。CLI 增加 `--transport mcp`，API 接受 `transport: mcp`。本阶段安装 SDK 1.30.0，明确限定 `<2`，避免混用 v2 接口。
+
+## Phase 10
+
+实现 13 项指标、人工标注的六个虚构 JD 样本、独立评分器、故障注入恢复场景和本地浏览器评估。未知 Token/成本保留 null；单价由本机配置，不硬编码供应商价格。修复跨检查点恢复时用量累计被覆盖的问题。
+
+125 项测试通过，1 项 PG 测试跳过；`python -m app.evaluation.runner --browser` 生成 `data/evaluations/latest.json`。本次离线 JD 技能提取与缺失技能准确率均为 4/6，匹配为 6/6，候选人证据幻觉为 0/10。词表外 Go 和否定句揭示了离线替身的局限；这些结果不代表真实模型或线上平台质量。工具指标是确定性路由准确率，浏览器指标来自本地合成页面。完整任务和恢复场景各通过 1/1，人工审批为 11/11，是安全流程的预期行为。

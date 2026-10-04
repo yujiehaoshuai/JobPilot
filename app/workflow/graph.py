@@ -34,6 +34,7 @@ class AgentState(TypedDict, total=False):
     outcome: str
     status: str
     usage: list[dict]
+    tool_events: list[dict]
 
 
 def build_graph(adapter, client, actions, approval, tracker, checkpointer):
@@ -61,21 +62,25 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
             job = job.model_copy(update={"id": tracker.resolve_job_id(job)})
             tracker.track(profile.id, job.id)
             normalized.append(job.model_dump(mode="json"))
-        return {"jobs": normalized, "index": 0, "results": [], "status": "RUNNING"}
+        tools = getattr(adapter, "tools", adapter)
+        return {"jobs": normalized, "index": 0, "results": [], "status": "RUNNING",
+                "tool_events": list(getattr(tools, "events", []))}
 
     def analyze(state):
         """模型提取后立即核对原文，再做确定性的候选人证据匹配。"""
+        usage_start = len(client.usage)
         analysis = JobAnalyzer(client).analyze(current_job(state))
         match = CandidateMatcher().match(candidate(state), current_job(state), analysis)
         return {"analysis": analysis.model_dump(mode="json"), "match": match.model_dump(mode="json"),
                 "draft": None, "action_id": None, "outcome": "NOT_SHORTLISTED",
-                "usage": [item.model_dump() for item in client.usage]}
+                "usage": [*state.get("usage", []), *[item.model_dump() for item in client.usage[usage_start:]]]}
 
     def draft(state):
+        usage_start = len(client.usage)
         value = GreetingGenerator(client).generate(candidate(state), current_job(state),
                                                     MatchResult.model_validate(state["match"]))
         return {"draft": value.model_dump(mode="json"),
-                "usage": [item.model_dump() for item in client.usage]}
+                "usage": [*state.get("usage", []), *[item.model_dump() for item in client.usage[usage_start:]]]}
 
     def prepare(state):
         """草稿在上个节点已落盘，重放此节点不会再次调用模型改变正文。"""

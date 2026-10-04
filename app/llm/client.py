@@ -2,6 +2,7 @@
 
 import json
 import os
+import math
 from time import perf_counter
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -45,7 +46,8 @@ class NoRedirect(HTTPRedirectHandler):
 class CompatibleLLMClient:
     """调用支持 json_schema 的 Chat Completions 接口。"""
 
-    def __init__(self, base_url: str, model: str, api_key: str, timeout: float = 45) -> None:
+    def __init__(self, base_url: str, model: str, api_key: str, timeout: float = 45,
+                 input_price: float | None = None, output_price: float | None = None) -> None:
         parts = urlsplit(base_url)
         if parts.scheme != "https" and not (
             parts.scheme == "http" and parts.hostname in {"localhost", "127.0.0.1", "::1"}
@@ -55,6 +57,7 @@ class CompatibleLLMClient:
             raise ConfigurationError("请检查 LLM_BASE_URL 和 LLM_MODEL")
         self.url = base_url.rstrip("/") + "/chat/completions"
         self.model, self.api_key, self.timeout = model, api_key, timeout
+        self.input_price, self.output_price = input_price, output_price
         self.usage: list[Usage] = []
 
     def complete(self, task: str, payload: dict[str, Any], schema: type[T]) -> T:
@@ -84,11 +87,14 @@ class CompatibleLLMClient:
             choice = raw["choices"][0]
             if choice.get("finish_reason") != "stop" or choice["message"].get("refusal"):
                 raise StructuredOutputError("模型拒答或输出未完整结束")
-            parsed = schema.model_validate_json(choice["message"]["content"])
             usage = raw.get("usage", {})
-            self.usage.append(Usage(input_tokens=usage.get("prompt_tokens", 0),
-                                    output_tokens=usage.get("completion_tokens", 0),
+            inputs, outputs = usage.get("prompt_tokens"), usage.get("completion_tokens")
+            cost = None
+            if all(value is not None for value in (inputs, outputs, self.input_price, self.output_price)):
+                cost = (inputs * self.input_price + outputs * self.output_price) / 1_000_000
+            self.usage.append(Usage(input_tokens=inputs, output_tokens=outputs, cost=cost,
                                     latency_ms=(perf_counter() - start) * 1000, provider="compatible"))
+            parsed = schema.model_validate_json(choice["message"]["content"])
             return parsed
         except HTTPError as exc:
             raise LLMError(f"LLM HTTP 错误：{exc.code}") from None
@@ -111,4 +117,16 @@ def create_llm(mode: str = "offline"):
     key = values.get("LLM_API_KEY") or ""
     if not model or (not key and urlsplit(base).hostname not in {"localhost", "127.0.0.1", "::1"}):
         raise ConfigurationError("请在本机 .env 配置 LLM_MODEL、LLM_BASE_URL 和 LLM_API_KEY")
-    return CompatibleLLMClient(base, model, key)
+    def price(name):
+        value = values.get(name)
+        if not value:
+            return None
+        try:
+            result = float(value)
+        except ValueError:
+            raise ConfigurationError("LLM 单价必须是非负数字") from None
+        if not math.isfinite(result) or result < 0:
+            raise ConfigurationError("LLM 单价必须是有限的非负数字")
+        return result
+    return CompatibleLLMClient(base, model, key, input_price=price("LLM_INPUT_PRICE_PER_MILLION"),
+                               output_price=price("LLM_OUTPUT_PRICE_PER_MILLION"))

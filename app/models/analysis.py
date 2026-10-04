@@ -72,8 +72,8 @@ class GreetingDraft(DomainModel):
 class Usage(DomainModel):
     """记录真实用量；未知成本保留为空，避免把缺失数据当作免费。"""
 
-    input_tokens: int = 0
-    output_tokens: int = 0
+    input_tokens: int | None = Field(default=0, ge=0)
+    output_tokens: int | None = Field(default=0, ge=0)
     latency_ms: float = 0
     cost: float | None = None
     provider: str = "offline"
