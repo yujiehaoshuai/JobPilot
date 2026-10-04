@@ -2,7 +2,7 @@
 
 JobPilot 的最终目标是一个有状态的 AI 求职助手：基于候选人的真实资料发现岗位、解释匹配依据、准备沟通内容，并在用户批准后执行招聘平台操作。
 
-**当前版本：v0.1，已完成 Phase 0 + Phase 1。当前不会连接真实招聘网站。**
+**当前已完成 Phase 0 + Phase 1，并新增 Phase 2 结构化分析模块。默认运行保持离线，不连接招聘网站。**
 
 这一版是可以独立运行的本地 Python 程序。它读取候选人资料与 20 个虚构岗位，执行规则过滤、去重，将通过筛选的岗位和申请记录保存到 SQLite。默认演示资料全部是虚构数据，不代表用户真实经历。通过规则过滤也不表示已经完成技能匹配或值得投递。
 
@@ -16,7 +16,7 @@ JobPilot 的最终目标是一个有状态的 AI 求职助手：基于候选人�
 - SQLite 持久化、重复导入、申请状态管理和需要明确确认的本地状态修改。
 - CLI 与离线单元、集成测试。
 
-尚未实现：LLM/JD 语义分析、候选人匹配、沟通生成、BOSS、浏览器、发送或投递、审批队列、LangGraph、API、Dashboard。没有引入 LangChain、Playwright、FastAPI、Redis、PostgreSQL、MCP 或 Docker。
+Phase 2 已增加结构化 JD 分析、候选人证据匹配和沟通草稿。BOSS、浏览器、发送或投递、审批队列、LangGraph、API、Dashboard 将按后续阶段依次接入。
 
 ## Python 与安装
 
@@ -62,7 +62,7 @@ python -m pytest -q
 
 读取优先级：进程环境变量 > `.env` > 默认值；空值使用默认值。配置中的相对路径基于项目根目录，CLI 路径参数基于当前终端目录。Windows 绝对数据库路径可写作 `sqlite:///D:/JobPilot/data/custom.db`。
 
-真实候选人资料请保存在被忽略的 `data/` 中，例如 `data/candidate.json`；不要用真实资料替换已公开的示例。当前没有任何 API Key、Cookie 或招聘平台登录配置。
+真实候选人资料请保存在被忽略的 `data/` 中，例如 `data/candidate.json`；不要用真实资料替换已公开的示例。API Key 只写入本机 `.env`。
 
 ## 运行与本地跟踪
 
@@ -174,7 +174,7 @@ JobPilot/
 
 规则过滤只做显式词语匹配，不能理解同义词或 JD 语义；城市映射也仅包含明确列出的别名。缺失城市、用工类型或可用性字段时按未知保留，不应视为已满足条件。本批次去重保留首次记录，不自动合并字段；跨次导入按平台 ID 或规范 URL 复用已有记录、刷新岗位内容并保留申请状态。薪资保留平台原文，尚不做范围解析。数据库目前无迁移机制，URL 查重使用简单扫描，适用于本地小规模学习和演示。
 
-后续严格按阶段推进，**本轮在 Phase 1 停止**：
+后续按用户的新授权严格依次推进，每阶段通过测试后单独提交：
 
 | Phase | 计划 |
 | --- | --- |
@@ -187,3 +187,19 @@ JobPilot/
 | 9–10 | 部分工具的 MCP 封装、Evaluation Pipeline |
 | 11 | 按实际需要加入部署、队列、限流与可观测性 |
 | 12–13 | 牛客、实习僧 Adapter，验证平台解耦 |
+
+## Phase 2：结构化分析与证据约束
+
+原命令 `python -m app.main` 保持兼容。新命令：
+
+```powershell
+.\.venv\Scripts\python.exe -m app.intelligence_demo --mode offline
+# 配好本机 .env 后才运行真实模型；不会自动降级成离线结果。
+.\.venv\Scripts\python.exe -m app.intelligence_demo --mode live
+```
+
+真实模式读取 LLM_BASE_URL、LLM_MODEL、LLM_API_KEY，接口需支持 Chat Completions 的严格 JSON Schema 输出。协议依据：[官方 Structured Outputs 文档](https://developers.openai.com/api/docs/guides/structured-outputs)。模型名称由用户选择，项目不硬编码价格或自动切换供应商。
+
+JobAnalyzer 核对 JD 技能引用；CandidateMatcher 按资料中明确的技能保守匹配，学习中的技能只算部分具备。GreetingGenerator 让模型选择最多三个证据编号，再由程序引用用户原文形成草稿，避免自由生成虚假的项目或熟练程度。非结构化简历中的隐含技能暂不自动判定，需用户补充到 CandidateProfile.skills。
+
+离线客户端是有限词表的演示替身，不代表真实 LLM 质量。API 密钥与真实服务尚需用户配置后验证。

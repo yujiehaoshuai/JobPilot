@@ -27,3 +27,11 @@ class InvalidTransitionError(JobPilotError):
 
 class ConfirmationRequiredError(JobPilotError):
     """用户尚未明确确认，因此拒绝修改本地申请状态或备注。"""
+
+
+class LLMError(JobPilotError):
+    """模型请求失败；错误消息不包含密钥或完整输入。"""
+
+
+class StructuredOutputError(LLMError):
+    """模型返回格式不符合约定，或引用了不存在的证据。"""
