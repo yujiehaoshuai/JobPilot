@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-020",
+  "source": "mock",
+  "source_job_id": "synthetic-020",
+  "title": "AI 产品销售实习生",
+  "company": "木星商贸（虚构）",
+  "city": "杭州",
+  "salary": "150-200 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n面向企业客户进行产品介绍、商务拓展和销售线索跟进，岗位职责为纯销售。",
+  "url": "https://example.invalid/jobs/synthetic-020",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

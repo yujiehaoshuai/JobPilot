@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-011",
+  "source": "mock",
+  "source_job_id": "synthetic-011",
+  "title": "RAG Engineer Intern",
+  "company": "晴空知识（虚构）",
+  "city": "深圳",
+  "salary": "180-220 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n维护企业文档检索 Demo，比较切分策略和检索结果，使用 Python 与 FastAPI。了解向量数据库优先。",
+  "url": "https://example.invalid/jobs/synthetic-011",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

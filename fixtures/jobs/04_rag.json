@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-004",
+  "source": "mock",
+  "source_job_id": "synthetic-004",
+  "title": "RAG 开发实习生",
+  "company": "青屿知识（虚构）",
+  "city": "Remote",
+  "salary": "160-210 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n实现文档清洗、切分、向量检索和来源引用。需要 Python 实践，重视检索结果评估。",
+  "url": "https://example.invalid/jobs/synthetic-004",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

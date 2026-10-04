@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-009",
+  "source": "mock",
+  "source_job_id": "synthetic-009",
+  "title": "Agent 工作流实习生",
+  "company": "见山软件（虚构）",
+  "city": "杭州",
+  "salary": "160-220 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n探索多步骤助手流程，处理条件分支和人工确认。了解 LangGraph 即可，有 Python 基础。",
+  "url": "https://example.invalid/jobs/synthetic-009",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

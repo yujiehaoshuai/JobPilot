@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-006",
+  "source": "mock",
+  "source_job_id": "synthetic-006",
+  "title": "Agent 工具开发实习生",
+  "company": "云杉工坊（虚构）",
+  "city": "上海",
+  "salary": "190-230 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n为任务助手开发可校验的 Python 工具接口，编写输入输出模型，参与工作流失败恢复实验。",
+  "url": "https://example.invalid/jobs/synthetic-006",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

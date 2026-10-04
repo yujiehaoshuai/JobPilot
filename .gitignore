@@ -1,0 +1,32 @@
+# 本地 Python 环境和运行时，不提交到版本库。
+.venv/
+.runtime/
+# 忽略个人配置，但保留不含凭据的配置示例。
+.env
+.env.*
+!.env.example
+# Python、测试和代码检查生成的缓存。
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+# 测试覆盖率报告和打包产物。
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+# 本地资料、浏览器登录状态和数据库，避免提交个人信息。
+data/
+browser-profile/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*
+# 运行日志和临时测试目录。
+*.log
+.test-tmp/
+# IDE 私人工作区和各招聘平台的登录资料。
+.idea/
+profiles/
+*.pem
+*.key

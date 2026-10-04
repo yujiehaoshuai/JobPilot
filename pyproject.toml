@@ -1,0 +1,28 @@
+# 构建工具负责读取项目元数据，并查找需要打包的 Python 模块。
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jobpilot"
+version = "0.1.0"
+description = "A local, mock-only job discovery and application tracker"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# 运行依赖统一从 requirements.txt 读取，避免维护两份依赖列表。
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+# 只收录 app 包；当前按源码目录运行，不把测试或本地环境当作业务包。
+include = ["app*"]
+
+[tool.pytest.ini_options]
+# 限定测试目录，避免 pytest 搜索本地运行时或第三方库。
+testpaths = ["tests"]
+# 在测试结束后汇总未通过、跳过等情况，便于查看原因。
+addopts = "-ra"
+# 将项目根目录加入模块搜索路径，让测试能直接导入 app。
+pythonpath = ["."]

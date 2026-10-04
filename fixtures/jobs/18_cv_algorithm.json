@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-018",
+  "source": "mock",
+  "source_job_id": "synthetic-018",
+  "title": "CV 算法实习生",
+  "company": "深林视觉（虚构）",
+  "city": "上海",
+  "salary": "200-260 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n研究目标检测、图像分割与模型训练，需要 PyTorch、计算机视觉和图像处理基础。",
+  "url": "https://example.invalid/jobs/synthetic-018",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

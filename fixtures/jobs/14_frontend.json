@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-014",
+  "source": "mock",
+  "source_job_id": "synthetic-014",
+  "title": "Agent 平台前端实习生",
+  "company": "流萤界面（虚构）",
+  "city": "杭州",
+  "salary": "160-200 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n负责平台页面与组件开发，主要使用 React、TypeScript 和 CSS，岗位职责为前端开发。",
+  "url": "https://example.invalid/jobs/synthetic-014",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

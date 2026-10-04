@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-013",
+  "source": "mock",
+  "source_job_id": "synthetic-013",
+  "title": "LLM Application Engineer Intern",
+  "company": "雾港软件（虚构）",
+  "city": "上海",
+  "salary": "200-240 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n开发面向知识库的 LLM 应用。需要 Python、HTTP API 与检索基础，负责提示词实验和结果记录。",
+  "url": "https://example.invalid/jobs/synthetic-002?utm_campaign=duplicate#detail",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

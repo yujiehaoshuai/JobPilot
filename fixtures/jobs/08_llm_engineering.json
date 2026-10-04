@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-008",
+  "source": "mock",
+  "source_job_id": "synthetic-008",
+  "title": "LLM 工程实习生",
+  "company": "拾光数据（虚构）",
+  "city": "远程",
+  "salary": "170-220 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n集成大模型接口和文档问答应用，保存请求日志及评估样例。希望有 Python 项目经验。",
+  "url": "https://example.invalid/jobs/synthetic-008",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

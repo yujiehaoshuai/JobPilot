@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-019",
+  "source": "mock",
+  "source_job_id": "synthetic-019",
+  "title": "计算机视觉算法实习生",
+  "company": "月湾影像（虚构）",
+  "city": "深圳",
+  "salary": "190-250 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n从事传统视觉检测与工业图像分类，侧重图像特征工程、算法训练和实验。",
+  "url": "https://example.invalid/jobs/synthetic-019",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

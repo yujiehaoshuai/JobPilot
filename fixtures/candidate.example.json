@@ -1,0 +1,69 @@
+{
+  "id": "synthetic-candidate-001",
+  "name": "演示候选人（虚构资料）",
+  "education": [
+    "虚构示例：计算机相关专业本科在读；不是用户真实教育信息"
+  ],
+  "skills": [
+    {
+      "skill": "Python",
+      "level": "project_experience",
+      "evidence": "虚构示例项目中编写数据处理脚本与后端业务逻辑"
+    },
+    {
+      "skill": "FastAPI",
+      "level": "project_experience",
+      "evidence": "虚构示例项目中实现 REST API"
+    },
+    {
+      "skill": "RAG",
+      "level": "project_experience",
+      "evidence": "虚构示例项目中完成文档切分、向量检索和回答引用"
+    },
+    {
+      "skill": "LangGraph",
+      "level": "learning",
+      "evidence": "虚构示例：仅阅读入门教程，尚无完整项目实践"
+    }
+  ],
+  "projects": [
+    "虚构示例：使用 Python、FastAPI 和 RAG 实现课程文档问答 Demo"
+  ],
+  "experience": [],
+  "target_roles": [
+    "Agent Engineer",
+    "LLM Application Engineer",
+    "AI Backend",
+    "大模型应用开发"
+  ],
+  "target_cities": [
+    "杭州",
+    "上海",
+    "深圳",
+    "Remote"
+  ],
+  "excluded_roles": [
+    "前端",
+    "Frontend",
+    "测试",
+    "Testing",
+    "销售",
+    "数据标注",
+    "CV",
+    "计算机视觉",
+    "推荐算法"
+  ],
+  "excluded_keywords": [
+    "纯销售",
+    "数据标注外包"
+  ],
+  "internship_duration_months": 6,
+  "available_days_per_week": 4,
+  "preferred_keywords": [
+    "Agent",
+    "LLM",
+    "RAG",
+    "大模型"
+  ],
+  "employment_type": "internship"
+}

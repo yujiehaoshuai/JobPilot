@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-016",
+  "source": "mock",
+  "source_job_id": "synthetic-016",
+  "title": "LLM 应用测试实习生",
+  "company": "晨露质量（虚构）",
+  "city": "深圳",
+  "salary": "150-180 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n负责功能测试用例、回归测试和缺陷追踪，工作内容以测试执行为主。",
+  "url": "https://example.invalid/jobs/synthetic-016",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}

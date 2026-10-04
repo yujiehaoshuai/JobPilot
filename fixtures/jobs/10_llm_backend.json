@@ -1,0 +1,17 @@
+{
+  "id": "mock-job-010",
+  "source": "mock",
+  "source_job_id": "synthetic-010",
+  "title": "LLM Backend Intern",
+  "company": "纸舟实验室（虚构）",
+  "city": "上海",
+  "salary": "200-250 元/天",
+  "description": "[虚构测试岗位，仅供离线演示]\n构建 Python 服务和结构化输出校验。开发模型调用记录与离线评估工具，需要清晰的代码和文档。",
+  "url": "https://example.invalid/jobs/synthetic-010",
+  "publish_time": "2026-09-01T08:00:00Z",
+  "hr_activity": "模拟：近期活跃",
+  "fetched_at": "2026-09-27T08:00:00Z",
+  "employment_type": "internship",
+  "internship_duration_months": 3,
+  "required_days_per_week": 4
+}
