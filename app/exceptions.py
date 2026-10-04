@@ -35,3 +35,11 @@ class LLMError(JobPilotError):
 
 class StructuredOutputError(LLMError):
     """模型返回格式不符合约定，或引用了不存在的证据。"""
+
+
+class BrowserPausedError(JobPilotError):
+    """网站要求人工登录或验证；完成后才能继续读取。"""
+
+
+class SelectorChangedError(JobParseError):
+    """页面未出现约定字段；暂停并检查页面结构，不能当作零个岗位。"""

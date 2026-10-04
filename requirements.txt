@@ -2,3 +2,6 @@
 pydantic>=2.10,<3
 # 读取项目 .env 文件中的配置。
 python-dotenv>=1.0,<2
+# 浏览器交互和页面解析；复用本机 Edge 时不必下载另一套浏览器。
+playwright>=1.50,<2
+beautifulsoup4>=4.12,<5
