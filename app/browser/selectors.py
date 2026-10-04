@@ -36,3 +36,14 @@ BOSS = SiteSpec(
 CHALLENGE_SELECTORS = ('iframe[src*="captcha"]', '.geetest_panel', '#captcha',
                        '.verify-wrap', '.login-dialog', '.sign-form')
 CHALLENGE_TITLES = ("安全验证", "人机验证", "登录", "访问异常", "Security Verification")
+
+# 2026-10-05 核对牛客公开搜索和详情页；不触碰申请或私信控件。
+NOWCODER = SiteSpec(
+    source="nowcoder", home="https://www.nowcoder.com", hosts=("www.nowcoder.com", "nowcoder.com"),
+    search_path="/jobs/intern/center?recruitType=2&search={query}",
+    detail_pattern=r"/jobs/detail/([0-9]+)", links='a[href*="/jobs/detail/"]',
+    title=".job-detail-wrap h1.title", company=".company-card .fs-20",
+    description=".job-detail-infos .pre-line", city=".job-detail-wrap .extra .el-tooltip",
+    salary=".job-detail-wrap .salary", empty=".job-list .el-empty, .job-list-empty",
+)
+NOWCODER_EXTRA = ".job-detail-wrap .extra"

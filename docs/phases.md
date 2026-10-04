@@ -67,3 +67,11 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 新增 Python 3.12 Dockerfile、Compose 数据库健康检查与迁移顺序、依赖锁定、日志字段白名单及轮转、进程内指标、单机任务互斥、浏览器 Profile 互斥、API 令牌桶、导航间隔和有限模型重试。同步图放在受限工作线程，SSE 使用异步等待；外部发送不使用重试。当前单机工作台无需 Redis；不宣称支持多主机横向扩容。
 
 128 项测试通过，1 项 PG 测试跳过；真实 Edge Dashboard 回归、部署静态预检和 pip check 通过。严格 CSP 保留，浏览器测试改用 DOM 断言；接口文档不依赖外部 CDN。本机仍没有 Docker，镜像构建、容器启动和真实 PostgreSQL 联调未验收。Compose 需在 .env 设置 POSTGRES_PASSWORD 和 JOBPILOT_API_TOKEN；运行 `docker compose up --build -d`，不用删除任何现有数据库。
+
+## Phase 12：离线实现检查点，真实平台验收待完成
+
+新增 NowcoderAdapter、集中选择器、合成搜索/详情页面和测试。解析岗位、城市、实习天数与时长；通过原有工厂接入 CLI、API、Dashboard 和 MCP，后续过滤与匹配保持平台无关。修复 Dashboard 来源下拉框原有的 HTML 标签错误。
+
+2026-10-05：129 项测试通过，1 项 PostgreSQL 测试因缺少专用测试库跳过；`python -m scripts.platform_smoke nowcoder` 使用真实 Edge 读取本地合成页面，搜索与详情通过。公开页面的搜索路径及详情 DOM 已核对；真实浏览器搜索触发登录或验证提示，程序按规则暂停，尚未完成线上搜索验收，没有申请或发送消息。
+
+用户要求睡前安全停止，工作保存在本检查点，不进入 Phase 13。BOSS 登录命令已退出；关闭时浏览器报告已关闭，不能据此认定登录成功。后续事项见 [续做记录](resume.md)。

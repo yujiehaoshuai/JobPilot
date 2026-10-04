@@ -15,7 +15,7 @@ def main():
     parser = argparse.ArgumentParser(description="持久化求职工作流")
     parser.add_argument("command", choices=["start", "status", "resume"])
     parser.add_argument("--id")
-    parser.add_argument("--source", choices=["mock", "boss"], default="mock")
+    parser.add_argument("--source", choices=["mock", "boss", "nowcoder"], default="mock")
     parser.add_argument("--mode", choices=["offline", "live"], default="offline")
     parser.add_argument("--transport", choices=["direct", "mcp"], default="direct")
     parser.add_argument("--candidate", type=Path)

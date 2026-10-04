@@ -45,7 +45,7 @@ def create_server(source: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", choices=["mock", "boss"], default="mock")
+    parser.add_argument("--source", choices=["mock", "boss", "nowcoder"], default="mock")
     args = parser.parse_args()
     # stdout 专用于 MCP 协议，不能在这里 print 普通日志。
     create_server(args.source).run(transport="stdio")
