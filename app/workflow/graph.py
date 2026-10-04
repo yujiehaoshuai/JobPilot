@@ -107,7 +107,8 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         result = {"job": state["jobs"][state["index"]], "analysis": state["analysis"],
                   "match": state["match"], "draft": state.get("draft"),
                   "action_id": state.get("action_id"), "outcome": state["outcome"]}
-        return {"index": state["index"] + 1, "results": [*state["results"], result]}
+        return {"index": state["index"] + 1, "results": [*state["results"], result],
+                "analysis": {}, "match": {}, "draft": None, "action_id": None}
 
     def finish(state):
         return {"status": "COMPLETED"}

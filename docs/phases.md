@@ -43,3 +43,9 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 新增 FastAPI、持久任务索引、单工作线程、候选人输入、状态查询、逐动作审批和 SSE 快照流。接口需要本机令牌，校验 Host/Origin，不提供跨域授权。重启后由用户恢复任务，不自动重放未知发送。
 
 120 项测试通过，1 项 PG 测试跳过；`python -m scripts.api_smoke` 完成 HTTP → 工作线程 → 审批暂停 → SSE。启动命令 `python -m app.server`，默认 127.0.0.1:8000；接口文档 `/docs`，令牌在 `.env` 或 `data/agent/api-token.txt`。
+
+## Phase 8
+
+新增无需前端构建工具的中文 Dashboard：导入 JSON、虚构示例、来源/模型选择、任务记录、恢复、技能证据、全文草稿和逐条批准/拒绝。页面用 textContent 显示外部资料，令牌不写入网页或浏览器持久存储。
+
+120 项测试通过，1 项 PG 测试跳过；`python -m scripts.dashboard_smoke` 在本机 Edge 完成载入、搜索、证据展示、拒绝、模拟批准，控制台无页面错误。人工查看 `data/dashboard-smoke.png`，布局和中文可读。该截图和浏览器测试均使用虚构数据。

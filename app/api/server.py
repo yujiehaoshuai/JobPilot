@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import Field
 from sqlalchemy import text
@@ -172,5 +173,13 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
                     return
                 await asyncio.sleep(0.5)
         return StreamingResponse(stream(), media_type="text/event-stream")
+
+    # 页面和 API 同源，不需要跨域配置，也不把访问令牌嵌入网页。
+    static_dir = PROJECT_ROOT / "app/web"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def dashboard():
+        return FileResponse(static_dir / "index.html")
 
     return app

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobPilot · 求职工作台</title><link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script></head>
+<body>
+<header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>让每一次沟通都有依据</small></div></div>
+<span class="badge">本地工作台 · 人工审批</span></header>
+<main>
+<section class="intro"><p class="eyebrow">求职工作流</p><h1>找到机会，先看证据。</h1><p>从岗位分析到沟通草稿，由你决定最后一步。</p></section>
+<div id="message" role="status" aria-live="polite">输入本机令牌，载入资料后即可开始离线演示。</div>
+<div class="layout">
+<aside>
+<section class="panel"><h2>1. 准备候选人资料</h2>
+<label for="token">本机访问令牌</label><input id="token" type="password" autocomplete="off" placeholder="输入本机 API 令牌">
+<p class="hint">首次启动保存在 data/agent/api-token.txt；令牌只留在当前页面。</p>
+<div class="row"><button id="example" class="secondary">载入虚构示例</button><label class="file">导入 JSON<input id="profile-file" type="file" accept=".json,application/json"></label></div>
+<label for="profile">Candidate Profile</label><textarea id="profile" rows="9" spellcheck="false" placeholder="粘贴真实资料 JSON，或先载入虚构示例"></textarea>
+<details><summary>资料填写说明</summary><p class="hint">skills 每项填写 skill、level 和 evidence。level 可选 learning、project_experience、professional；evidence 请填写自己的真实经历。原始简历请先整理为这些字段，程序不会推测经历。</p></details>
+<label for="query">岗位关键词（可选）</label><input id="query" placeholder="例如 Python、Agent">
+<div class="row"><div><label for="source">岗位来源</label><select id="source"><option value="mock">Mock 离线样本</option value="boss">BOSS 只读搜索</option></select></div>
+<div><label for="mode">分析方式</label><select id="mode"><option value="offline">离线演示</option><option value="live">真实 LLM</option></select></div></div>
+<p class="hint">离线分析使用有限词表；真实 LLM 需要先配置 .env。真实网站要求人工登录。</p>
+<button id="start">开始搜索与分析</button></section>
+<section class="panel"><div class="row between"><h2>任务记录</h2><button id="refresh" class="quiet">刷新</button></div><div id="runs" class="task-list"><p class="muted">暂无已载入的任务</p></div></section>
+</aside>
+<div>
+<section class="panel"><div class="row between"><h2>2. 查看进度</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">任务会保存检查点，可在重启后继续。</p>
+<div class="steps"><span>搜索 / 过滤</span><span>分析 / 匹配</span><span>草稿 / 审批</span><span>执行 / 跟踪</span></div>
+<div id="run-detail"></div><button id="resume" class="secondary" hidden>恢复当前任务</button></section>
+<section class="panel"><div class="row between"><h2>3. 审阅沟通草稿</h2><span class="hint">一条草稿，一次批准</span></div>
+<div id="actions"><div class="empty">分析完成后，草稿和证据会出现在这里。<br>未批准的消息不会发送。</div></div></section>
+<section class="panel"><h2>岗位与匹配依据</h2><div id="results"><p class="muted">等待岗位分析</p></div></section>
+</div></div>
+</main><footer>JobPilot · 所有经历来自你提供的资料 · 登录验证由你本人完成</footer>
+</body></html>
