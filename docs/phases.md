@@ -23,3 +23,11 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 实现完整快照摘要、PendingAction、批准/拒绝、事务领取、模拟执行和回执。`python -m app.approval_cli list` 查看；approve/reject 需要 --id 和看到的 --digest。发送超时保留 UNCERTAIN，不能自动重发；EXECUTING 表示执行中或进程中断待人工核查。
 
 109 项测试通过；`python -m scripts.approval_smoke` 完成临时库审批演示。真实网站发送接口尚未在已登录页面验收，暂不开放真实自动发送；审批和工作流可以独立完成离线演示。
+
+## Phase 5
+
+实现 AgentState、读取/分析/草稿/审批/执行节点、条件边、逐岗位循环、Interrupt、Resume 和 SQLite Checkpoint。原 Phase 1 CLI 与测试保持不变。Resume 不等于 Approve；模型失败保留失败节点，浏览器验证需要人工恢复。
+
+113 项测试通过，覆盖重新创建图后的恢复、拒绝/批准循环、验证暂停和模型错误恢复。`python -m scripts.workflow_smoke` 完成 11 岗位的离线流程。真实来源发送暂停在尚未验收的界面契约处。
+
+使用 `python -m app.workflow_cli start` 启动，记下 run_id；`status --id RUN_ID` 查看，`resume --id RUN_ID` 恢复。对应审批数据库默认是 `data/agent/actions.db`。设计依据：[LangGraph Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts)。

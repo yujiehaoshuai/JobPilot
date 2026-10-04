@@ -1,0 +1,54 @@
+"""为一次图调用准备资源，退出时关闭浏览器与数据库连接。"""
+
+from contextlib import contextmanager
+from pathlib import Path
+from langgraph.checkpoint.sqlite import SqliteSaver
+from app.config import load_settings
+from app.adapters.mock.adapter import MockJobAdapter
+from app.adapters.boss import BossAdapter
+from app.browser.session import BrowserSession
+from app.browser.selectors import BOSS
+from app.llm.client import create_llm
+from app.storage.tracker import SQLiteTracker
+from app.storage.actions import ActionStore
+from app.services.action_service import ApprovalService, MockActionExecutor
+from app.exceptions import BrowserPausedError
+from app.workflow.graph import build_graph
+
+
+class UnverifiedPlatformExecutor:
+    """真实发送必须先验证登录界面与收件人契约，未配置时明确暂停。"""
+
+    def preflight(self, payload):
+        raise BrowserPausedError("真实发送界面尚未验收，需人工核对平台收件人及发送控件")
+
+    def send(self, payload):
+        raise RuntimeError("未经页面验收不能发送")
+
+
+@contextmanager
+def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None):
+    """只有真实来源才启动浏览器；默认运行完全离线。"""
+    from contextlib import ExitStack
+    data_dir = Path(data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    with ExitStack() as stack:
+        if adapter is None:
+            if source == "mock":
+                adapter = MockJobAdapter(load_settings().jobs_path)
+            elif source == "boss":
+                session = stack.enter_context(BrowserSession(BOSS, Path("profiles/boss")))
+                adapter = BossAdapter(session)
+            else:
+                raise ValueError("未知岗位来源")
+        actions = ActionStore(data_dir / "actions.db")
+        tracker = stack.enter_context(SQLiteTracker(data_dir / "tracker.db"))
+        saver = stack.enter_context(SqliteSaver.from_conn_string(str(data_dir / "checkpoints.db")))
+        executor = MockActionExecutor() if source == "mock" else UnverifiedPlatformExecutor()
+        yield build_graph(adapter, client or create_llm(mode), actions,
+                          ApprovalService(actions, executor), tracker, saver), actions
+
+
+def graph_config(run_id: str):
+    """同一个 run_id 始终使用同一检查点；上限容纳 50 个岗位的循环。"""
+    return {"configurable": {"thread_id": run_id}, "recursion_limit": 500}
