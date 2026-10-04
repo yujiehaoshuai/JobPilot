@@ -8,3 +8,8 @@ beautifulsoup4>=4.12,<5
 # 有状态工作流与本地持久化检查点。
 langgraph>=1.2.12,<2
 langgraph-checkpoint-sqlite>=3.1,<4
+# PostgreSQL、版本化迁移和服务端检查点。
+sqlalchemy>=2.0,<3
+alembic>=1.13,<2
+psycopg[binary,pool]>=3.2,<4
+langgraph-checkpoint-postgres>=3,<4

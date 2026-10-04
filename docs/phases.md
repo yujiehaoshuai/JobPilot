@@ -31,3 +31,9 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 113 项测试通过，覆盖重新创建图后的恢复、拒绝/批准循环、验证暂停和模型错误恢复。`python -m scripts.workflow_smoke` 完成 11 岗位的离线流程。真实来源发送暂停在尚未验收的界面契约处。
 
 使用 `python -m app.workflow_cli start` 启动，记下 run_id；`status --id RUN_ID` 查看，`resume --id RUN_ID` 恢复。对应审批数据库默认是 `data/agent/actions.db`。设计依据：[LangGraph Interrupts](https://docs.langchain.com/oss/python/langgraph/interrupts)。
+
+## Phase 6
+
+新增 SQLAlchemy 关系存储、独立 Agent 表、Alembic 0001 和 PostgreSQL Checkpoint。`AGENT_DATABASE_URL` 指定新后端；`python -m app.db_cli upgrade` 显式升级。旧 SQLite 文件不删除、不自动搬迁。迁移定义固定，不从未来可能改变的模型动态生成。
+
+117 项测试通过，1 项真实 PostgreSQL 测试因未提供服务跳过；本机未找到 docker/psql。SQLite 迁移重复执行、关系存储、原子审批及图恢复已验收；`python -m scripts.workflow_smoke` 再次通过。真实 PG 测试命令：配置专用测试库 `JOBPILOT_TEST_POSTGRES_URL` 后运行 `python -m pytest tests/integration/test_relational_storage.py -q`。

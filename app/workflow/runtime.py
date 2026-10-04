@@ -27,7 +27,7 @@ class UnverifiedPlatformExecutor:
 
 
 @contextmanager
-def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None):
+def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None, database_url=None):
     """只有真实来源才启动浏览器；默认运行完全离线。"""
     from contextlib import ExitStack
     data_dir = Path(data_dir)
@@ -41,9 +41,23 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
                 adapter = BossAdapter(session)
             else:
                 raise ValueError("未知岗位来源")
-        actions = ActionStore(data_dir / "actions.db")
-        tracker = stack.enter_context(SQLiteTracker(data_dir / "tracker.db"))
-        saver = stack.enter_context(SqliteSaver.from_conn_string(str(data_dir / "checkpoints.db")))
+        from app.runtime_config import setting
+        database_url = database_url or setting("AGENT_DATABASE_URL")
+        if database_url:
+            from app.storage.relational import database_engine, RelationalActionStore, RelationalTracker
+            engine = database_engine(database_url, initialize=database_url.startswith("sqlite:"))
+            stack.callback(engine.dispose)
+            actions, tracker = RelationalActionStore(engine), RelationalTracker(engine)
+        else:
+            # 保留 Phase 5 已有 SQLite 文件；启用新后端必须明确配置。
+            actions = ActionStore(data_dir / "actions.db")
+            tracker = stack.enter_context(SQLiteTracker(data_dir / "tracker.db"))
+        if database_url and database_url.startswith("postgresql"):
+            from langgraph.checkpoint.postgres import PostgresSaver
+            uri = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+            saver = stack.enter_context(PostgresSaver.from_conn_string(uri))
+        else:
+            saver = stack.enter_context(SqliteSaver.from_conn_string(str(data_dir / "checkpoints.db")))
         executor = MockActionExecutor() if source == "mock" else UnverifiedPlatformExecutor()
         yield build_graph(adapter, client or create_llm(mode), actions,
                           ApprovalService(actions, executor), tracker, saver), actions
