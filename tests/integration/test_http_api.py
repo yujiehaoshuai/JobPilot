@@ -1,0 +1,46 @@
+"""API 通过真实工作线程和临时数据库验证鉴权、审批以及状态流。"""
+
+import time
+from fastapi.testclient import TestClient
+from app.api.server import create_app
+
+
+def wait_for_pause(client, run_id):
+    for _ in range(100):
+        result = client.get(f"/api/runs/{run_id}").json()
+        if result["status"] in {"PAUSED", "FAILED", "COMPLETED"}:
+            assert result["status"] != "FAILED", result.get("error")
+            return result
+        time.sleep(0.05)
+    raise AssertionError("API 任务未在预期时间内暂停")
+
+
+def test_api_auth_and_origin(tmp_path):
+    with TestClient(create_app(tmp_path, token="test-token")) as client:
+        assert client.get("/health").status_code == 200
+        assert client.get("/api/runs").status_code == 401
+        assert client.get("/api/runs", headers={"X-JobPilot-Token": "test-token", "Origin": "https://evil.test"}).status_code == 403
+
+
+def test_api_workflow_approval_and_sse(tmp_path):
+    with TestClient(create_app(tmp_path, token="test-token"), headers={"X-JobPilot-Token": "test-token"}) as client:
+        profile = client.get("/api/candidate-example").json()
+        response = client.post("/api/runs", json={"candidate": profile})
+        assert response.status_code == 202
+        run_id = response.json()["id"]
+        state = wait_for_pause(client, run_id)
+        assert state["interrupts"][0]["kind"] == "approval"
+        assert client.post(f"/api/runs/{run_id}/resume").status_code == 409
+        action = client.get("/api/actions", params={"run_id": run_id}).json()[0]
+        assert client.post(f"/api/actions/{action['id']}/decision", json={"digest": "0" * 64, "approve": True}).status_code == 409
+        assert client.post(f"/api/actions/{action['id']}/decision", json={"digest": action["digest"], "approve": False}).status_code == 200
+        response = client.get(f"/api/runs/{run_id}/events")
+        assert "event: state" in response.text and "text/event-stream" in response.headers["content-type"]
+        assert client.post(f"/api/runs/{run_id}/resume").status_code == 202
+        wait_for_pause(client, run_id)
+        assert client.get("/api/applications").json()
+
+
+def test_api_rejects_invalid_candidate(tmp_path):
+    with TestClient(create_app(tmp_path, token="t"), headers={"X-JobPilot-Token": "t"}) as client:
+        assert client.post("/api/runs", json={"candidate": {"name": "缺少编号"}}).status_code == 422

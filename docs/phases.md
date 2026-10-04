@@ -37,3 +37,9 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 新增 SQLAlchemy 关系存储、独立 Agent 表、Alembic 0001 和 PostgreSQL Checkpoint。`AGENT_DATABASE_URL` 指定新后端；`python -m app.db_cli upgrade` 显式升级。旧 SQLite 文件不删除、不自动搬迁。迁移定义固定，不从未来可能改变的模型动态生成。
 
 117 项测试通过，1 项真实 PostgreSQL 测试因未提供服务跳过；本机未找到 docker/psql。SQLite 迁移重复执行、关系存储、原子审批及图恢复已验收；`python -m scripts.workflow_smoke` 再次通过。真实 PG 测试命令：配置专用测试库 `JOBPILOT_TEST_POSTGRES_URL` 后运行 `python -m pytest tests/integration/test_relational_storage.py -q`。
+
+## Phase 7
+
+新增 FastAPI、持久任务索引、单工作线程、候选人输入、状态查询、逐动作审批和 SSE 快照流。接口需要本机令牌，校验 Host/Origin，不提供跨域授权。重启后由用户恢复任务，不自动重放未知发送。
+
+120 项测试通过，1 项 PG 测试跳过；`python -m scripts.api_smoke` 完成 HTTP → 工作线程 → 审批暂停 → SSE。启动命令 `python -m app.server`，默认 127.0.0.1:8000；接口文档 `/docs`，令牌在 `.env` 或 `data/agent/api-token.txt`。
