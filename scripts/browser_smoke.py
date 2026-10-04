@@ -6,13 +6,14 @@ from app.adapters.boss import BossAdapter
 from app.browser.selectors import BOSS
 from app.browser.session import BrowserSession
 from app.exceptions import BrowserPausedError
+from app.runtime_config import setting
 
 
 def main():
     """通过路由替换响应，确保测试不会访问真实招聘网站。"""
     base = Path("fixtures/browser")
     with tempfile.TemporaryDirectory(prefix="jobpilot-browser-") as profile:
-        with BrowserSession(BOSS, Path(profile), headless=True) as session:
+        with BrowserSession(BOSS, Path(profile), headless=True, channel=setting("BROWSER_CHANNEL", "msedge")) as session:
             def route(request):
                 filename = "boss_detail.html" if "/job_detail/" in request.request.url else "boss_search.html"
                 request.fulfill(body=(base / filename).read_text("utf-8"), content_type="text/html")

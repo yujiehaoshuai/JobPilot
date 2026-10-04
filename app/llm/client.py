@@ -12,7 +12,7 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 from dotenv import dotenv_values
 from pydantic import ValidationError
 from app.config import PROJECT_ROOT
-from app.exceptions import ConfigurationError, LLMError, StructuredOutputError
+from app.exceptions import ConfigurationError, LLMError, StructuredOutputError, TransientLLMError
 from app.llm.base import T
 from app.models.analysis import Usage
 
@@ -61,6 +61,11 @@ class CompatibleLLMClient:
         self.usage: list[Usage] = []
 
     def complete(self, task: str, payload: dict[str, Any], schema: type[T]) -> T:
+        """暂时故障最多重试三次；不会自动换模型或降级成离线内容。"""
+        from app.reliability import retry_model
+        return retry_model(lambda: self._complete_once(task, payload, schema))
+
+    def _complete_once(self, task: str, payload: dict[str, Any], schema: type[T]) -> T:
         """只接受完整 JSON；拒答、截断或格式错误均作为明确失败。"""
         prompts = {
             "analyze": "分析给定 JD。技能使用 JD 中实际出现的名称，每个技能必须引用 JD 原文。"
@@ -97,9 +102,11 @@ class CompatibleLLMClient:
             parsed = schema.model_validate_json(choice["message"]["content"])
             return parsed
         except HTTPError as exc:
+            if exc.code in {429, 500, 502, 503, 504}:
+                raise TransientLLMError(f"LLM 暂时不可用：HTTP {exc.code}") from None
             raise LLMError(f"LLM HTTP 错误：{exc.code}") from None
         except (URLError, TimeoutError) as exc:
-            raise LLMError("LLM 网络请求失败或超时") from None
+            raise TransientLLMError("LLM 网络请求失败或超时") from None
         except (KeyError, IndexError, TypeError, ValueError, ValidationError):
             raise StructuredOutputError("LLM 响应结构不符合约定") from None
 

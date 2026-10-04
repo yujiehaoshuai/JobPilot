@@ -3,11 +3,13 @@
 import socket
 import threading
 import time
+import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import uvicorn
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 from app.api.server import create_app
+from app.runtime_config import setting
 
 
 def main():
@@ -25,14 +27,14 @@ def main():
                     break
                 time.sleep(0.05)
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(channel="msedge", headless=True)
+                browser = playwright.chromium.launch(channel=setting("BROWSER_CHANNEL", "msedge"), headless=True)
                 page = browser.new_page(viewport={"width": 1440, "height": 1050})
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 page.goto(f"http://127.0.0.1:{port}")
                 page.locator("#token").fill("dashboard-test-token")
                 page.get_by_role("button", name="载入虚构示例").click()
-                page.wait_for_function("document.getElementById('profile').value.includes('skills')")
+                expect(page.locator("#profile")).to_have_value(re.compile(r'.*"skills".*', re.S))
                 page.get_by_role("button", name="开始搜索与分析").click()
                 page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 assert page.locator("#results").inner_text().find("已具备") >= 0
@@ -42,7 +44,7 @@ def main():
                 page.locator('.action[data-status="REJECTED"]').wait_for(timeout=20000)
                 page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 page.get_by_role("button", name="批准本条（模拟）").click()
-                page.wait_for_function("document.getElementById('actions').textContent.includes('已执行')", timeout=20000)
+                page.locator('.action[data-status="SUCCEEDED"]').wait_for(timeout=20000)
                 assert not errors, errors
                 browser.close()
                 print("Dashboard load / evidence / reject / simulated approve: OK")

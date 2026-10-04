@@ -1,0 +1,19 @@
+# 构建上下文不携带本机凭据、个人资料、浏览器状态和 Git 历史。
+.git
+.venv
+.runtime
+.idea
+.env
+.env.*
+!.env.example
+data
+profiles
+browser-profile
+__pycache__
+**/__pycache__
+.pytest_cache
+*.db
+*.sqlite*
+*.log
+*.key
+*.pem

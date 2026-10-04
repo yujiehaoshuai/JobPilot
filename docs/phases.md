@@ -61,3 +61,9 @@ Phase 0 + 1 基线：原有 88 项测试通过，原 CLI 为 20 → 13 → 11。
 实现 13 项指标、人工标注的六个虚构 JD 样本、独立评分器、故障注入恢复场景和本地浏览器评估。未知 Token/成本保留 null；单价由本机配置，不硬编码供应商价格。修复跨检查点恢复时用量累计被覆盖的问题。
 
 125 项测试通过，1 项 PG 测试跳过；`python -m app.evaluation.runner --browser` 生成 `data/evaluations/latest.json`。本次离线 JD 技能提取与缺失技能准确率均为 4/6，匹配为 6/6，候选人证据幻觉为 0/10。词表外 Go 和否定句揭示了离线替身的局限；这些结果不代表真实模型或线上平台质量。工具指标是确定性路由准确率，浏览器指标来自本地合成页面。完整任务和恢复场景各通过 1/1，人工审批为 11/11，是安全流程的预期行为。
+
+## Phase 11
+
+新增 Python 3.12 Dockerfile、Compose 数据库健康检查与迁移顺序、依赖锁定、日志字段白名单及轮转、进程内指标、单机任务互斥、浏览器 Profile 互斥、API 令牌桶、导航间隔和有限模型重试。同步图放在受限工作线程，SSE 使用异步等待；外部发送不使用重试。当前单机工作台无需 Redis；不宣称支持多主机横向扩容。
+
+128 项测试通过，1 项 PG 测试跳过；真实 Edge Dashboard 回归、部署静态预检和 pip check 通过。严格 CSP 保留，浏览器测试改用 DOM 断言；接口文档不依赖外部 CDN。本机仍没有 Docker，镜像构建、容器启动和真实 PostgreSQL 联调未验收。Compose 需在 .env 设置 POSTGRES_PASSWORD 和 JOBPILOT_API_TOKEN；运行 `docker compose up --build -d`，不用删除任何现有数据库。

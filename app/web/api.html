@@ -1,0 +1,4 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>JobPilot API</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main><h1>JobPilot API</h1><p>请求携带 <code>X-JobPilot-Token</code>。完整字段与 JSON Schema 见 <a href="/openapi.json">OpenAPI 定义</a>。</p>
+<section class="panel"><ul><li>GET /health：服务健康。</li><li>POST /api/runs：提交 candidate、source、mode、queries、transport 创建任务。</li><li>GET /api/runs：任务列表。</li><li>GET /api/runs/{id}：持久状态与结果。</li><li>GET /api/runs/{id}/events：SSE 状态流。</li><li>POST /api/runs/{id}/resume：恢复任务，不代表批准。</li><li>GET /api/actions?run_id=…：待审批动作与全文。</li><li>POST /api/actions/{id}/decision：提交 digest 和 approve。</li><li>GET /api/applications：申请跟踪。</li><li>GET /api/metrics：本进程运行计数。</li><li>GET /api/evaluation/latest：最近一次评估报告。</li></ul></section>
+<p>401：令牌无效；403：来源不符；409：状态冲突或尚未审批；422：资料格式错误；429：请求限流。</p><a href="/">返回工作台</a></main></body></html>

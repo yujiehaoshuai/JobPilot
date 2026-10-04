@@ -33,6 +33,10 @@ class LLMError(JobPilotError):
     """模型请求失败；错误消息不包含密钥或完整输入。"""
 
 
+class TransientLLMError(LLMError):
+    """限流、暂时服务故障或网络错误，可有限重试模型生成。"""
+
+
 class StructuredOutputError(LLMError):
     """模型返回格式不符合约定，或引用了不存在的证据。"""
 

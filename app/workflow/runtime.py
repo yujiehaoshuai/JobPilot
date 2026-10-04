@@ -34,6 +34,8 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     with ExitStack() as stack:
+        from app.reliability import workflow_lock
+        stack.enter_context(workflow_lock(data_dir))
         if adapter is None:
             if transport == "mcp":
                 from app.mcp_client import MCPJobAdapter

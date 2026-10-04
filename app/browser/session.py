@@ -1,6 +1,8 @@
 """复用专属浏览器资料，保留正常登录；不绕过任何验证机制。"""
 
 from pathlib import Path
+import time
+from filelock import FileLock, Timeout
 from urllib.parse import urlsplit
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
@@ -16,11 +18,18 @@ class BrowserSession:
         self.site, self.profile = site, Path(profile)
         self.headless, self.channel, self.timeout_ms = headless, channel, timeout_ms
         self.driver = self.context = self.page = None
+        self.profile_lock = None
+        self.last_navigation = 0.0
 
     def __enter__(self):
         self.profile.mkdir(parents=True, exist_ok=True)
-        self.driver = sync_playwright().start()
+        self.profile_lock = FileLock(str(self.profile / "jobpilot-session.lock"))
         try:
+            self.profile_lock.acquire(timeout=0)
+        except Timeout:
+            raise BrowserPausedError("此平台浏览器资料正在使用，请先关闭登录窗口或其他任务") from None
+        try:
+            self.driver = sync_playwright().start()
             self.context = self.driver.chromium.launch_persistent_context(
                 str(self.profile), headless=self.headless, channel=self.channel,
                 accept_downloads=False,
@@ -29,7 +38,9 @@ class BrowserSession:
             self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
             return self
         except Exception:
-            self.driver.stop()
+            if self.driver:
+                self.driver.stop()
+            self.profile_lock.release()
             raise
 
     def __exit__(self, *args):
@@ -39,6 +50,8 @@ class BrowserSession:
         finally:
             if self.driver:
                 self.driver.stop()
+            if self.profile_lock:
+                self.profile_lock.release()
 
     def validate_url(self, url: str) -> None:
         """只允许此平台的 HTTPS 页面，防止岗位链接跳到未知站点。"""
@@ -58,6 +71,11 @@ class BrowserSession:
     def read(self, url: str, ready_selector: str) -> str:
         """只导航并读取 DOM；选择器超时不会被误认为搜索结果为空。"""
         self.validate_url(url)
+        # 当前会话的页面导航至少间隔一秒，不因失败或空结果快速刷请求。
+        remaining = 1.0 - (time.monotonic() - self.last_navigation)
+        if remaining > 0:
+            time.sleep(remaining)
+        self.last_navigation = time.monotonic()
         response = self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout_ms)
         if response and response.status in {401, 403, 429}:
             raise BrowserPausedError("平台拒绝访问或要求验证，请稍后人工检查")

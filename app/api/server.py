@@ -20,6 +20,7 @@ from app.runtime_config import agent_database_url, setting
 from app.storage.relational import database_engine, RunStore, RelationalActionStore, RelationalTracker
 from app.api.worker import WorkflowWorker
 from app.exceptions import JobPilotError
+from app.reliability import TokenBucket
 
 
 class StartRun(DomainModel):
@@ -66,6 +67,7 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     engine = database_engine(url)
     runs, actions, tracker = RunStore(engine), RelationalActionStore(engine), RelationalTracker(engine)
     worker = WorkflowWorker(runs, data_dir, url)
+    limiter = TokenBucket()
 
     @asynccontextmanager
     async def lifespan(app):
@@ -73,7 +75,7 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
         await asyncio.to_thread(worker.close)
         engine.dispose()
 
-    app = FastAPI(title="JobPilot", version="0.7.0", lifespan=lifespan)
+    app = FastAPI(title="JobPilot", version="0.11.0", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.worker, app.state.runs = worker, runs
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1", "testserver"])
 
@@ -83,6 +85,8 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
         origin = request.headers.get("origin")
         if origin and origin != str(request.base_url).rstrip("/"):
             raise HTTPException(403, "不接受跨来源操作")
+        if not limiter.allow():
+            raise HTTPException(429, "请求过于频繁，请稍后重试", headers={"Retry-After": "1"})
 
     auth = [Depends(authenticated)]
 
@@ -105,6 +109,7 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'"
         return response
 
     @app.get("/health")
@@ -156,6 +161,17 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     def applications():
         return tracker.list_applications()
 
+    @app.get("/api/metrics", dependencies=auth)
+    def metrics():
+        return {"counters": dict(worker.metrics), "scope": "当前服务进程；持久历史见任务列表和事件日志"}
+
+    @app.get("/api/evaluation/latest", dependencies=auth)
+    def evaluation():
+        path = PROJECT_ROOT / "data/evaluations/latest.json"
+        if not path.exists():
+            raise HTTPException(404, "尚未运行评估")
+        return json.loads(path.read_text("utf-8"))
+
     @app.get("/api/runs/{run_id}/events", dependencies=auth)
     async def events(run_id: str, request: Request):
         runs.get(run_id)
@@ -182,5 +198,9 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.get("/", include_in_schema=False)
     def dashboard():
         return FileResponse(static_dir / "index.html")
+
+    @app.get("/docs", include_in_schema=False)
+    def api_documentation():
+        return FileResponse(static_dir / "api.html")
 
     return app
