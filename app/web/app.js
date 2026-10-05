@@ -44,7 +44,7 @@ function showState(run) {
   const state = run.snapshot || {};
   byId("run-detail").append(element("p",`已处理 ${state.index || 0} / ${(state.jobs || []).length} 个岗位`,"hint"));
   if (run.error) byId("run-detail").append(element("p",run.error));
-  for (const item of run.interrupts || []) if (item.kind === "browser") byId("run-detail").append(element("p",item.message));
+  for (const item of run.interrupts || []) if (["browser","action_recovery"].includes(item.kind)) byId("run-detail").append(element("p",item.message));
   byId("resume").hidden = !["PAUSED","FAILED","RUNNING"].includes(run.status);
   const results = byId("results"); results.replaceChildren();
   const rows = [...(state.results || [])];
@@ -68,6 +68,21 @@ async function showActions() {
     const link = element("a","查看岗位原页"); link.href=p.job.url; link.target="_blank"; link.rel="noopener noreferrer"; card.append(link);
     card.append(element("p",p.content,"draft"),element("p","审批摘要："+action.digest,"digest"));
     if (action.receipt) card.append(element("p",action.receipt,"digest"));
+    if (["EXECUTING","UNCERTAIN"].includes(action.status)) {
+      card.append(element("p","请先在平台人工核查此消息。若任务仍在执行，系统会拒绝修改结果。","hint"));
+      const note = element("textarea"); note.placeholder="填写核查依据，例如收件人、时间及平台显示的结果（至少五个字）";
+      note.maxLength=1000; note.setAttribute("aria-label","发送结果核查依据"); card.append(note);
+      const controls = element("div",undefined,"row");
+      for (const sent of [true,false]) {
+        const button = element("button",sent ? "已人工确认送达" : "确认未发送，结束此动作","secondary");
+        button.addEventListener("click",()=>guarded(async()=>{
+          if(note.value.trim().length<5)throw new Error("请先填写至少五个字的核查依据。");
+          await api(`/api/actions/${action.id}/resolve`,{method:"POST",body:JSON.stringify({digest:action.digest,sent,note:note.value.trim()})});
+          message("已保存人工核查结果，没有重新发送。可以恢复任务。"); await selectRun(action.run_id);
+        },button)); controls.append(button);
+      }
+      card.append(controls);
+    }
     if (action.status === "PENDING") {
       const controls = element("div",undefined,"row");
       for (const approve of [true,false]) {

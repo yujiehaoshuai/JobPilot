@@ -45,6 +45,15 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
     def current_job(state):
         return JobPosting.model_validate(state["jobs"][state["index"]])
 
+    def record_progress(state, target):
+        """只前进自动流程的进度，不覆盖用户记录的面试、忽略或归档状态。"""
+        stages = ["NEW", "ANALYZED", "SHORTLISTED", "CONTACT_READY", "CONTACTED"]
+        application = tracker.track(candidate(state).id, current_job(state).id)
+        if application.status not in stages:
+            return
+        for status in stages[stages.index(application.status) + 1:stages.index(target) + 1]:
+            tracker.update_status(application.id, status, confirmed=True)
+
     def discover(state):
         """只读操作可在人工验证后重跑；绝不自动回答验证码。"""
         while True:
@@ -71,6 +80,7 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         usage_start = len(client.usage)
         analysis = JobAnalyzer(client).analyze(current_job(state))
         match = CandidateMatcher().match(candidate(state), current_job(state), analysis)
+        record_progress(state, "SHORTLISTED" if match.shortlisted else "ANALYZED")
         return {"analysis": analysis.model_dump(mode="json"), "match": match.model_dump(mode="json"),
                 "draft": None, "action_id": None, "outcome": "NOT_SHORTLISTED",
                 "usage": [*state.get("usage", []), *[item.model_dump() for item in client.usage[usage_start:]]]}
@@ -88,6 +98,7 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         action = actions.prepare(state["run_id"], ActionPayload(
             candidate=candidate(state), job=current_job(state), content=value.content,
             evidence_ids=value.evidence_ids, simulated=state["source"] == "mock"))
+        record_progress(state, "CONTACT_READY")
         return {"action_id": action.id, "status": "WAITING_APPROVAL"}
 
     def review(state):
@@ -104,6 +115,12 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         while True:
             try:
                 result = approval.execute(state["action_id"])
+                if result.status in {"EXECUTING", "UNCERTAIN"}:
+                    interrupt({"kind": "action_recovery", "action_id": result.id,
+                               "message": "发送结果尚未确认，请到平台人工核查，再记录结果；禁止自动重发。"})
+                    continue
+                if result.status == "SUCCEEDED" and not result.payload.simulated:
+                    record_progress(state, "CONTACTED")
                 return {"outcome": result.status}
             except BrowserPausedError as exc:
                 interrupt({"kind": "browser", "message": str(exc), "action_id": state["action_id"]})

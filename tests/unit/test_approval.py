@@ -6,6 +6,8 @@ from app.exceptions import ConfirmationRequiredError, InvalidTransitionError, Br
 from app.models.action import ActionPayload
 from app.storage.actions import ActionStore
 from app.services.action_service import ApprovalService, MockActionExecutor
+from app.services.action_service import resolve_after_review
+from app.reliability import workflow_lock
 
 
 @pytest.fixture
@@ -81,3 +83,32 @@ def test_preflight_pause_preserves_approval(action_setup):
     with pytest.raises(BrowserPausedError):
         ApprovalService(store, Paused()).execute(action.id)
     assert store.get(action.id).status == "APPROVED"
+
+
+@pytest.mark.parametrize("status", ["EXECUTING", "UNCERTAIN"])
+@pytest.mark.parametrize("sent", [True, False])
+def test_manual_resolution_is_terminal_and_audited(action_setup, tmp_path, status, sent):
+    store, action = action_setup
+    store.decide(action.id, action.digest, True, "user")
+    store.transition(action.id, "APPROVED", "EXECUTING")
+    if status == "UNCERTAIN":
+        store.transition(action.id, "EXECUTING", "UNCERTAIN")
+    result = resolve_after_review(store, tmp_path, action.id, action.digest, sent, "已核对平台消息记录", "user")
+    assert result.status == ("SUCCEEDED" if sent else "REJECTED")
+    assert result.resolved_by == "user" and result.resolution_note == "已核对平台消息记录"
+    assert ApprovalService(store, MockActionExecutor()).execute(action.id).status == result.status
+    with pytest.raises(InvalidTransitionError):
+        resolve_after_review(store, tmp_path, action.id, action.digest, sent, "重复核对不能覆盖", "user")
+
+
+def test_resolution_cannot_replace_approval_or_active_execution(action_setup, tmp_path):
+    store, action = action_setup
+    with pytest.raises(InvalidTransitionError):
+        resolve_after_review(store, tmp_path, action.id, action.digest, True, "尚未批准的动作", "user")
+    store.decide(action.id, action.digest, True, "user")
+    store.transition(action.id, "APPROVED", "EXECUTING")
+    with pytest.raises(ConfirmationRequiredError):
+        resolve_after_review(store, tmp_path, action.id, "old-digest", True, "已核对平台记录", "user")
+    with workflow_lock(tmp_path), pytest.raises(InvalidTransitionError, match="工作流执行中"):
+        resolve_after_review(store, tmp_path, action.id, action.digest, True, "不能抢占正在执行的任务", "user")
+    assert store.get(action.id).status == "EXECUTING"

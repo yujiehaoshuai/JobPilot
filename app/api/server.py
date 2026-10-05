@@ -21,6 +21,7 @@ from app.storage.relational import database_engine, RunStore, RelationalActionSt
 from app.api.worker import WorkflowWorker
 from app.exceptions import JobPilotError
 from app.reliability import TokenBucket
+from app.services.action_service import resolve_after_review
 
 
 class StartRun(DomainModel):
@@ -38,6 +39,14 @@ class Decision(DomainModel):
 
     digest: str = Field(pattern=r"^[a-f0-9]{64}$")
     approve: bool = Field(strict=True)
+
+
+class RecoveryDecision(DomainModel):
+    """用户已在平台核对事实；这里只保存核查结果，不触发发送。"""
+
+    digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    sent: bool = Field(strict=True)
+    note: str = Field(min_length=5, max_length=1000)
 
 
 def local_token(data_dir: Path) -> str:
@@ -156,6 +165,11 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.post("/api/actions/{action_id}/decision", dependencies=auth)
     def decide(action_id: str, body: Decision):
         return actions.decide(action_id, body.digest, body.approve, "authenticated-local-user")
+
+    @app.post("/api/actions/{action_id}/resolve", dependencies=auth)
+    def resolve(action_id: str, body: RecoveryDecision):
+        return resolve_after_review(actions, data_dir, action_id, body.digest, body.sent,
+                                    body.note, "authenticated-local-user")
 
     @app.get("/api/applications", dependencies=auth)
     def applications():

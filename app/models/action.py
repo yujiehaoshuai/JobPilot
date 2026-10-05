@@ -37,3 +37,5 @@ class PendingAction(DomainModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     decided_by: str | None = None
     receipt: str | None = None
+    resolved_by: str | None = None
+    resolution_note: str | None = None

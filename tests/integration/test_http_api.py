@@ -44,3 +44,28 @@ def test_api_workflow_approval_and_sse(tmp_path):
 def test_api_rejects_invalid_candidate(tmp_path):
     with TestClient(create_app(tmp_path, token="t"), headers={"X-JobPilot-Token": "t"}) as client:
         assert client.post("/api/runs", json={"candidate": {"name": "缺少编号"}}).status_code == 422
+
+
+def test_api_manual_recovery_preserves_approval_boundary(tmp_path):
+    from app.storage.relational import database_engine, RelationalActionStore
+    url = "sqlite:///" + (tmp_path / "agent.db").as_posix()
+    with TestClient(create_app(tmp_path, token="t"), headers={"X-JobPilot-Token": "t"}) as client:
+        profile = client.get("/api/candidate-example").json()
+        run_id = client.post("/api/runs", json={"candidate": profile}).json()["id"]
+        wait_for_pause(client, run_id)
+        action = client.get("/api/actions", params={"run_id": run_id}).json()[0]
+        path = f"/api/actions/{action['id']}/resolve"
+        body = {"digest": action["digest"], "sent": False, "note": "人工核对未发送"}
+        assert client.post(path, json=body).status_code == 409
+        engine = database_engine(url)
+        try:
+            store = RelationalActionStore(engine)
+            store.decide(action["id"], action["digest"], True, "test-human")
+            store.transition(action["id"], "APPROVED", "EXECUTING")
+            store.transition(action["id"], "EXECUTING", "UNCERTAIN")
+            response = client.post(path, json=body)
+            assert response.status_code == 200
+            assert response.json()["status"] == "REJECTED"
+            assert response.json()["resolved_by"] == "authenticated-local-user"
+        finally:
+            engine.dispose()

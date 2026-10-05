@@ -78,3 +78,33 @@ def test_failure_recovery_retries_only_failed_node(tmp_path):
     with open_graph(tmp_path) as (graph, actions):
         graph.invoke(None, config)
         assert graph.get_state(config).next == ("review",)
+
+
+def test_uncertain_action_pauses_until_human_reconciliation(tmp_path, monkeypatch):
+    """超时后保持当前岗位，反复恢复也不能重发；人工核查后才继续循环。"""
+    from app.services.action_service import MockActionExecutor, resolve_after_review
+    from app.storage.tracker import SQLiteTracker
+    calls = []
+    def timeout(self, payload):
+        calls.append(payload.digest())
+        raise TimeoutError("模拟发送结果未知")
+    monkeypatch.setattr(MockActionExecutor, "send", timeout)
+    config = graph_config("test-run")
+    with open_graph(tmp_path) as (graph, actions):
+        graph.invoke(initial(), config)
+        action = actions.get(graph.get_state(config).values["action_id"])
+        actions.decide(action.id, action.digest, True, "test-human")
+        graph.invoke(Command(resume=True), config)
+        state = graph.get_state(config)
+        assert state.next == ("execute",) and state.values["index"] == 0
+        assert state.tasks[0].interrupts[0].value["kind"] == "action_recovery"
+        graph.invoke(Command(resume=True), config)
+        assert len(calls) == 1
+    resolve_after_review(actions, tmp_path, action.id, action.digest, False, "模拟人工核查未发送", "test-human")
+    with open_graph(tmp_path) as (graph, actions):
+        graph.invoke(Command(resume=True), config)
+        assert graph.get_state(config).values["results"][0]["outcome"] == "REJECTED"
+        assert len(calls) == 1
+    with SQLiteTracker(tmp_path / "tracker.db") as tracker:
+        statuses = [application.status for application in tracker.list_applications()]
+        assert "CONTACT_READY" in statuses and "CONTACTED" not in statuses
