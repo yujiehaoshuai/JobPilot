@@ -2,9 +2,7 @@
 
 import argparse
 import sys
-from pathlib import Path
-from app.adapters.boss import BossAdapter
-from app.browser.selectors import BOSS
+from playwright.sync_api import Error as PlaywrightError
 from app.browser.session import BrowserSession
 from app.exceptions import JobPilotError
 from app.adapters.factory import PLATFORMS
@@ -31,12 +29,17 @@ def main() -> int:
                 session.page.goto(site.home)
                 input("请在浏览器中手动登录或完成验证；确认完成后按回车保存并关闭：")
                 session.ensure_ready()
+                print("浏览器会话已保存；登录是否可用还需通过只读搜索验证。")
             else:
                 for job in adapter_type(session, args.limit).search_jobs([args.query]):
                     print(job.model_dump_json())
         return 0
     except JobPilotError as exc:
         print(str(exc), file=sys.stderr)
+        return 1
+    except PlaywrightError:
+        # 第三方异常可能带页面细节；显示操作建议，不输出资料或长堆栈。
+        print("浏览器操作未完成，请检查窗口是否关闭、页面是否超时，再重新运行。", file=sys.stderr)
         return 1
 
 

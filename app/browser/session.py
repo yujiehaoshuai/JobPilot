@@ -5,7 +5,7 @@ import time
 from filelock import FileLock, Timeout
 from urllib.parse import urlsplit
 
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout, Error as PlaywrightError
 from app.browser.selectors import CHALLENGE_SELECTORS, CHALLENGE_TITLES, SiteSpec
 from app.exceptions import BrowserPausedError, JobParseError
 
@@ -38,20 +38,31 @@ class BrowserSession:
             self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
             return self
         except Exception:
-            if self.driver:
-                self.driver.stop()
-            self.profile_lock.release()
+            try:
+                if self.driver:
+                    self.driver.stop()
+            finally:
+                self.profile_lock.release()
             raise
 
     def __exit__(self, *args):
+        """用户提前关窗也释放驱动和锁；其他关闭错误仍交给调用方处理。"""
         try:
             if self.context:
-                self.context.close()
+                try:
+                    self.context.close()
+                except PlaywrightError as exc:
+                    # Playwright 的公开异常基类用于识别已经关闭的窗口。
+                    # 只忽略此情况，不能把真正的驱动故障也当成成功。
+                    if "Target page, context or browser has been closed" not in str(exc):
+                        raise
         finally:
-            if self.driver:
-                self.driver.stop()
-            if self.profile_lock:
-                self.profile_lock.release()
+            try:
+                if self.driver:
+                    self.driver.stop()
+            finally:
+                if self.profile_lock:
+                    self.profile_lock.release()
 
     def validate_url(self, url: str) -> None:
         """只允许此平台的 HTTPS 页面，防止岗位链接跳到未知站点。"""
@@ -62,6 +73,8 @@ class BrowserSession:
 
     def ensure_ready(self) -> None:
         """发现登录、验证或站外跳转时立即暂停，保留持久登录资料。"""
+        if self.page.is_closed():
+            raise BrowserPausedError("浏览器窗口已关闭，请重新打开登录窗口后再验证")
         self.validate_url(self.page.url)
         if any(word in self.page.title() for word in CHALLENGE_TITLES):
             raise BrowserPausedError("请手动登录或完成网站验证，然后恢复任务")

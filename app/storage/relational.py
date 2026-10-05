@@ -39,7 +39,10 @@ run_table = Table("agent_runs", metadata,
 
 
 def database_engine(url: str, *, initialize: bool = False):
-    """PostgreSQL 必须先迁移；SQLite 本地兼容模式可自动建表。"""
+    """所有自动初始化都通过 Alembic，避免与 API 的迁移入口产生冲突。"""
+    if initialize:
+        from app.db_cli import upgrade
+        upgrade(url)
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     engine = create_engine(url, pool_pre_ping=True)
@@ -48,8 +51,6 @@ def database_engine(url: str, *, initialize: bool = False):
         def configure(connection, record):
             connection.execute("PRAGMA foreign_keys=ON")
             connection.execute("PRAGMA busy_timeout=15000")
-    if initialize:
-        metadata.create_all(engine)
     return engine
 
 

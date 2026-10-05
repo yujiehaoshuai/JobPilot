@@ -3,7 +3,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text, create_engine
 from langgraph.types import Command
 from app.db_cli import upgrade
 from app.storage.relational import database_engine, RelationalActionStore, RelationalTracker, RunStore
@@ -13,6 +13,7 @@ from app.services.action_service import ApprovalService, MockActionExecutor
 from app.workflow.runtime import open_graph, graph_config
 from app.main import load_candidate
 from app.config import load_settings
+from app.exceptions import StorageError
 
 
 @pytest.fixture
@@ -57,6 +58,44 @@ def test_run_registry(engine):
     runs.update("r", "WAITING_APPROVAL", node="review")
     assert runs.get("r")["node"] == "review"
     assert runs.list()[0]["source"] == "mock"
+
+
+def test_legacy_schema_adoption_preserves_records(tmp_path, candidate):
+    """复现旧工作流先建表、API 后迁移；补版本时已有候选人不能丢失。"""
+    from app.storage.relational import metadata
+    url = "sqlite:///" + (tmp_path / "legacy.db").as_posix()
+    engine = create_engine(url)
+    metadata.create_all(engine)
+    RelationalTracker(engine).save_candidate(candidate)
+    upgrade(url)
+    upgrade(url)
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0001"
+        assert conn.execute(text("SELECT id FROM agent_candidates")).scalar_one() == candidate.id
+    engine.dispose()
+
+
+def test_incompatible_legacy_schema_is_untouched(tmp_path):
+    """未知布局不能被直接标记为迁移成功，原始数据必须仍可读取。"""
+    url = "sqlite:///" + (tmp_path / "unknown.db").as_posix()
+    engine = create_engine(url)
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE agent_candidates (id TEXT PRIMARY KEY, note TEXT)"))
+        conn.execute(text("INSERT INTO agent_candidates VALUES ('preserve', 'original')"))
+    with pytest.raises(StorageError, match="不完整"):
+        upgrade(url)
+    assert "alembic_version" not in inspect(engine).get_table_names()
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT note FROM agent_candidates")).scalar_one() == "original"
+    engine.dispose()
+
+
+def test_automatic_initialization_records_migration(tmp_path):
+    url = "sqlite:///" + (tmp_path / "fresh.db").as_posix()
+    engine = database_engine(url, initialize=True)
+    upgrade(url)
+    assert "alembic_version" in inspect(engine).get_table_names()
+    engine.dispose()
 
 
 def test_relational_workflow_restart(tmp_path, engine):
