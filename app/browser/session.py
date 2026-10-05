@@ -32,7 +32,8 @@ class BrowserSession:
             self.driver = sync_playwright().start()
             self.context = self.driver.chromium.launch_persistent_context(
                 str(self.profile), headless=self.headless, channel=self.channel,
-                accept_downloads=False,
+                # 显式启用 Chromium 沙箱，避免 Playwright 默认关闭沙箱。
+                accept_downloads=False, chromium_sandbox=True,
             )
             self.context.set_default_timeout(self.timeout_ms)
             self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
@@ -75,6 +76,8 @@ class BrowserSession:
         """发现登录、验证或站外跳转时立即暂停，保留持久登录资料。"""
         if self.page.is_closed():
             raise BrowserPausedError("浏览器窗口已关闭，请重新打开登录窗口后再验证")
+        if self.page.url == "about:blank":
+            raise BrowserPausedError("页面已变为空白页，无法确认登录状态；请人工检查，不自动重试或绕过验证")
         self.validate_url(self.page.url)
         if any(word in self.page.title() for word in CHALLENGE_TITLES):
             raise BrowserPausedError("请手动登录或完成网站验证，然后恢复任务")

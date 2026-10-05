@@ -32,3 +32,13 @@ def test_closed_page_requires_manual_reopen(tmp_path):
     session.page.is_closed.return_value = True
     with pytest.raises(BrowserPausedError, match="已关闭"):
         session.ensure_ready()
+
+
+def test_browser_launch_requires_sandbox(tmp_path, monkeypatch):
+    """读取外部网页时必须显式开启沙箱，不能回退到依赖默认值。"""
+    driver = Mock()
+    context = driver.chromium.launch_persistent_context.return_value
+    context.pages = [Mock()]
+    monkeypatch.setattr("app.browser.session.sync_playwright", lambda: Mock(start=lambda: driver))
+    with BrowserSession(BOSS, tmp_path):
+        assert driver.chromium.launch_persistent_context.call_args.kwargs["chromium_sandbox"] is True

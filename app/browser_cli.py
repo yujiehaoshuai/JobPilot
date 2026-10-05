@@ -18,11 +18,18 @@ def main() -> int:
     parser.add_argument("--channel", default="msedge")
     parser.add_argument("--source", choices=list(PLATFORMS), default="boss")
     parser.add_argument("--headless", action="store_true")
+    parser.add_argument("--manual", action="store_true", help="用本机普通 Edge 窗口人工登录")
     args = parser.parse_args()
     if args.command == "login" and args.headless:
         parser.error("人工登录必须显示浏览器窗口")
+    if args.manual and (args.command != "login" or args.channel != "msedge"):
+        parser.error("--manual 仅用于本机 Edge 的 login 命令")
     site, adapter_type = PLATFORMS[args.source]
     try:
+        if args.manual:
+            from app.browser.manual_login import manual_login
+            manual_login(site, PROJECT_ROOT / "profiles" / args.source)
+            return 0
         with BrowserSession(site, PROJECT_ROOT / "profiles" / args.source, channel=args.channel or None,
                             headless=args.headless) as session:
             if args.command == "login":

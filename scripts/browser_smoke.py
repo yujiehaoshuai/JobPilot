@@ -27,6 +27,13 @@ def main():
                 print("BOSS 本地页面读取和验证码暂停验证通过")
             else:
                 raise AssertionError("验证页面没有暂停")
+            session.page.goto("about:blank")
+            try:
+                session.ensure_ready()
+            except BrowserPausedError:
+                print("浏览器沙箱已启用，空白页会暂停")
+            else:
+                raise AssertionError("空白页不能被当成登录成功")
 
 
 if __name__ == "__main__":
