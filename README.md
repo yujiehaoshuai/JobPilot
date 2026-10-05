@@ -2,9 +2,13 @@
 
 JobPilot 的最终目标是一个有状态的 AI 求职助手：基于候选人的真实资料发现岗位、解释匹配依据、准备沟通内容，并在用户批准后执行招聘平台操作。
 
-**当前已完成 Phase 0 + Phase 1，并新增 Phase 2 结构化分析模块。默认运行保持离线，不连接招聘网站。**
+**当前已实现 Phase 0–12 的主要离线流程与平台读取接口；Phase 13 未完成。真实模型、招聘平台操作和容器部署仍有验收缺口。默认运行离线。**
 
-这一版是可以独立运行的本地 Python 程序。它读取候选人资料与 20 个虚构岗位，执行规则过滤、去重，将通过筛选的岗位和申请记录保存到 SQLite。默认演示资料全部是虚构数据，不代表用户真实经历。通过规则过滤也不表示已经完成技能匹配或值得投递。
+最新验证：145 项测试通过，1 项 PostgreSQL 测试因未配置专用测试库跳过；Dashboard、工作流恢复和 Evaluation 本地演示通过。真实发送仍由保护执行器暂停，不能将离线演示当成已完成真实投递。
+
+完整入口：[启动与 Demo](docs/demo.md) · [当前架构](docs/architecture.md) · [目录树与学习路线](docs/file-guide.md) · [阶段验收和提交](docs/phases.md) · [BOSS 登录诊断](docs/browser-login-diagnosis.md) · [续做记录](docs/resume.md)。
+
+原 Phase 1 CLI 仍可独立运行：读取候选人资料与 20 个虚构岗位，执行规则过滤、去重，将通过筛选的岗位和申请记录保存到 SQLite。新工作流在此基础上增加分析、证据匹配、草稿、审批、检查点及 Web 工作台。默认资料全部虚构，通过规则过滤不等于适合投递。
 
 ## 已实现与阶段边界
 
@@ -16,11 +20,11 @@ JobPilot 的最终目标是一个有状态的 AI 求职助手：基于候选人�
 - SQLite 持久化、重复导入、申请状态管理和需要明确确认的本地状态修改。
 - CLI 与离线单元、集成测试。
 
-Phase 2 已增加结构化 JD 分析、候选人证据匹配和沟通草稿。BOSS、浏览器、发送或投递、审批队列、LangGraph、API、Dashboard 将按后续阶段依次接入。
+后续模块已加入结构化 JD 分析、证据匹配、沟通草稿、BOSS/牛客只读 Adapter、审批队列、LangGraph、FastAPI、Dashboard、MCP、Evaluation、SQLAlchemy/Alembic 和部署配置。外部发送接口尚未通过平台验收，不开放真实自动发送。
 
 ## Python 与安装
 
-项目要求 `3.12.x`，在 `pyproject.toml`、`.python-version` 和 CLI 启动检查中均有声明。运行依赖是 Pydantic 2 与 python-dotenv；开发测试使用 pytest，SQLite 使用 Python 标准库。
+项目要求 `3.12.x`，在 `pyproject.toml`、`.python-version` 和 CLI 启动检查中均有声明。运行依赖见 requirements.txt，已验证的锁定版本见 requirements.lock.txt。现有环境直接使用，不需要重复安装。
 
 当前工作区的 `.venv` 已准备好，版本为 Python 3.12.10，直接使用即可，**无需再安装 Python 或重建环境**：
 
@@ -109,7 +113,7 @@ Done.
 
 7 个拒绝岗位为 2 个前端、2 个测试、2 个 CV、1 个销售。一个岗位可能命中多个拒绝原因，因此原因计数总和可以大于 7。再次运行，`New jobs saved` 为 **0**，申请数仍是 **11**。当前工作区已跑过演示，所以默认数据库会显示第二次运行的结果。
 
-## Architecture 与数据流
+## 原 Phase 1 CLI 数据流
 
 ```text
 main.py
@@ -125,7 +129,7 @@ main.py
 
 使用 Pydantic 是为了在读取 JSON 时尽早发现字段错误；Adapter 统一数据入口；过滤与去重使用普通 Python；SQLite 使用唯一约束、外键和事务保护持久状态。CLI 明确编排这些步骤，便于从上到下阅读。具体设计取舍与限制见 [架构说明](docs/architecture.md)。
 
-## Directory Structure
+## 原 Phase 1 目录概览
 
 ```text
 JobPilot/
@@ -148,7 +152,7 @@ JobPilot/
 └─ README.md
 ```
 
-[完整源码目录树与每个文件作用](docs/file-guide.md)；[本次续做与验收记录](docs/phase-0-1-report.md)。
+[当前完整源码目录树与主要文件作用](docs/file-guide.md)；[Phase 0、1 历史验收](docs/phase-0-1-report.md)。
 
 ## 测试
 
@@ -158,7 +162,7 @@ JobPilot/
 .\.venv\Scripts\python.exe -m pytest tests/integration -q
 ```
 
-测试在临时目录建数据库，不会修改 `data/jobpilot.db`。覆盖模型校验、城市和关键词过滤、标准化与去重、损坏输入、事务回滚、跨候选人状态隔离、批准限制、重复导入、配置优先级、实际 CLI 的重启持久化及中文输出。全部离线，不会打开浏览器。
+默认测试在临时目录建库，覆盖领域模型、过滤、去重、存储、审批、恢复、HTTP、MCP 和评估，不连接招聘网站。真实 PostgreSQL 测试仅在配置专用测试库后启用。浏览器关键演示单独运行 scripts 下的 smoke 命令，使用真实 Edge 和本地合成页面。
 
 ## 推荐先读的 5 个文件
 
@@ -172,9 +176,9 @@ JobPilot/
 
 ## 已知限制与 Roadmap
 
-规则过滤只做显式词语匹配，不能理解同义词或 JD 语义；城市映射也仅包含明确列出的别名。缺失城市、用工类型或可用性字段时按未知保留，不应视为已满足条件。本批次去重保留首次记录，不自动合并字段；跨次导入按平台 ID 或规范 URL 复用已有记录、刷新岗位内容并保留申请状态。薪资保留平台原文，尚不做范围解析。数据库目前无迁移机制，URL 查重使用简单扫描，适用于本地小规模学习和演示。
+规则与候选人技能匹配采用保守的显式核对，未知信息不能当成已满足。薪资保留原文。原 Phase 1 SQLite 保持兼容，新 Agent 后端使用 Alembic。系统面向单机学习与 Demo，不宣称多租户或多主机高可用。真实平台、模型和容器的待验收事项见续做记录。
 
-后续按用户的新授权严格依次推进，每阶段通过测试后单独提交：
+阶段顺序保留，各阶段的实现和验收边界见 docs/phases.md；以下为阶段职责：
 
 | Phase | 计划 |
 | --- | --- |

@@ -6,6 +6,7 @@ import time
 import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 import uvicorn
 from playwright.sync_api import sync_playwright, expect
 from app.api.server import create_app
@@ -45,9 +46,21 @@ def main():
                 page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 page.get_by_role("button", name="批准本条（模拟）").click()
                 page.locator('.action[data-status="SUCCEEDED"]').wait_for(timeout=20000)
+                # 临时故障只作用于本脚本的模拟执行器，验证人工核查表单的完整路径。
+                page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
+                with patch("app.services.action_service.MockActionExecutor.send", side_effect=TimeoutError("模拟超时")):
+                    page.get_by_role("button", name="批准本条（模拟）").click()
+                    pending = page.locator('.action[data-status="UNCERTAIN"]')
+                    pending.wait_for(timeout=20000)
+                action_id = pending.get_attribute("data-action-id")
+                pending.get_by_label("发送结果核查依据").fill("模拟人工核对平台记录未发送")
+                pending.get_by_role("button", name="确认未发送，结束此动作").click()
+                page.locator(f'.action[data-action-id="{action_id}"][data-status="REJECTED"]').wait_for(timeout=20000)
+                page.locator("#resume").click()
+                page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 assert not errors, errors
                 browser.close()
-                print("Dashboard load / evidence / reject / simulated approve: OK")
+                print("Dashboard load / evidence / reject / simulated approve / manual recovery: OK")
         finally:
             server.should_exit = True
             thread.join(timeout=15)

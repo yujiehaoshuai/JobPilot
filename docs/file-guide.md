@@ -1,90 +1,225 @@
-# 完整源码目录树与文件职责
+# 完整源码目录与学习路线
 
-这是 Phase 0 + Phase 1 的完整项目源码/测试/文档清单。注释说明每个文件在当前架构中的作用。`__init__.py` 仅声明对应 Python 包与模块说明，不隐藏初始化业务逻辑。
+本树根据 Git 跟踪文件及当前未忽略源码生成，包含配置、源码、fixtures、测试和文档。`.venv`、`.runtime`、`.env`、真实数据、浏览器资料、数据库与缓存不属于可提交源码，因此不展开；它们仍保留在本机。
 
 ```text
 JobPilot/
-├── .env.example                       # 本阶段配置变量名，不含凭据
-├── .gitignore                         # 忽略个人资料、数据库、环境与缓存
-├── .python-version                    # 声明 Python 3.12
-├── pyproject.toml                     # 版本边界、项目元数据、pytest 配置
-├── requirements.txt                   # Pydantic 与 python-dotenv 运行依赖
-├── requirements-dev.txt               # 运行依赖 + pytest
-├── README.md                          # 定位、安装、运行、测试、输出与路线图
 ├── app/
-│   ├── __init__.py                    # app 包
-│   ├── main.py                        # CLI 参数、可见流水线、错误出口
-│   ├── config.py                      # 环境/.env/默认配置及路径解析
-│   ├── logging_config.py              # 标准库日志、run_id、stderr 输出
-│   ├── enums.py                       # 用工类型、技能等级、申请状态
-│   ├── exceptions.py                  # 明确的领域/配置/存储错误类型
-│   ├── models/
-│   │   ├── __init__.py                # 模型包
-│   │   ├── base.py                    # 公共模型配置及非空字符串约束
-│   │   ├── candidate.py               # 候选人事实、技能证据与求职条件
-│   │   ├── job.py                     # 平台统一岗位与过滤结果
-│   │   └── application.py             # 候选人/岗位关联的本地进展
 │   ├── adapters/
-│   │   ├── __init__.py                # 数据入口包
-│   │   ├── base.py                    # 只读搜索/详情抽象接口
-│   │   └── mock/
-│   │       ├── __init__.py            # Mock 包
-│   │       └── adapter.py            # 有序读取并校验 JSON 岗位
+│   │   ├── mock/
+│   │   │   ├── __init__.py
+│   │   │   └── adapter.py
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── boss.py
+│   │   ├── browser_adapter.py
+│   │   ├── factory.py
+│   │   └── nowcoder.py
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── server.py
+│   │   └── worker.py
+│   ├── browser/
+│   │   ├── __init__.py
+│   │   ├── manual_login.py
+│   │   ├── selectors.py
+│   │   └── session.py
+│   ├── evaluation/
+│   │   ├── __init__.py
+│   │   ├── metrics.py
+│   │   └── runner.py
+│   ├── llm/
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── client.py
+│   │   └── offline.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── action.py
+│   │   ├── analysis.py
+│   │   ├── application.py
+│   │   ├── base.py
+│   │   ├── candidate.py
+│   │   └── job.py
 │   ├── services/
-│   │   ├── __init__.py                # 业务规则包
-│   │   ├── normalization_service.py   # 字符串清理及 URL 规范化
-│   │   ├── filter_service.py          # 确定性筛选及拒绝原因
-│   │   └── deduplication_service.py   # 批次内按平台身份/URL 保序去重
-│   └── storage/
-│       ├── __init__.py                # 持久化包
-│       └── tracker.py                 # SQLite、事务、身份复用、确认及状态流转
+│   │   ├── __init__.py
+│   │   ├── action_service.py
+│   │   ├── analysis_service.py
+│   │   ├── deduplication_service.py
+│   │   ├── filter_service.py
+│   │   ├── greeting_service.py
+│   │   ├── matching_service.py
+│   │   └── normalization_service.py
+│   ├── storage/
+│   │   ├── __init__.py
+│   │   ├── actions.py
+│   │   ├── relational.py
+│   │   └── tracker.py
+│   ├── tools/
+│   │   ├── __init__.py
+│   │   └── jobs.py
+│   ├── web/
+│   │   ├── api.html
+│   │   ├── app.js
+│   │   ├── index.html
+│   │   └── style.css
+│   ├── workflow/
+│   │   ├── __init__.py
+│   │   ├── graph.py
+│   │   └── runtime.py
+│   ├── __init__.py
+│   ├── approval_cli.py
+│   ├── browser_cli.py
+│   ├── config.py
+│   ├── db_cli.py
+│   ├── enums.py
+│   ├── exceptions.py
+│   ├── intelligence_demo.py
+│   ├── logging_config.py
+│   ├── main.py
+│   ├── mcp_client.py
+│   ├── mcp_server.py
+│   ├── observability.py
+│   ├── reliability.py
+│   ├── runtime_config.py
+│   ├── server.py
+│   └── workflow_cli.py
+├── docs/
+│   ├── architecture.md
+│   ├── browser-login-diagnosis.md
+│   ├── demo.md
+│   ├── file-guide.md
+│   ├── phase-0-1-report.md
+│   ├── phases.md
+│   ├── pycharm-interpreter-diagnosis.md
+│   └── resume.md
 ├── fixtures/
-│   ├── candidate.example.json        # 明确标记为虚构的候选人示例
-│   └── jobs/
-│       ├── 01_agent_engineer.json     # 通过：Agent 实习
-│       ├── 02_llm_application.json    # 通过：LLM 应用实习
-│       ├── 03_ai_backend.json         # 通过：AI 后端实习
-│       ├── 04_rag.json                # 通过：远程 RAG 实习
-│       ├── 05_chinese_llm.json        # 通过：中文大模型标题
-│       ├── 06_agent_tools.json        # 通过：Agent 工具实习
-│       ├── 07_rag_platform.json       # 通过：RAG 平台实习
-│       ├── 08_llm_engineering.json    # 通过：中文远程城市别名
-│       ├── 09_agent_workflow.json     # 通过：Agent 工作流实习
-│       ├── 10_llm_backend.json        # 通过：LLM 后端实习
-│       ├── 11_rag_engineer.json       # 通过：RAG 工程实习
-│       ├── 12_agent_id_duplicate.json # 通过过滤后按平台编号去重
-│       ├── 13_llm_url_duplicate.json  # 通过过滤后按规范 URL 去重
-│       ├── 14_frontend.json           # 拒绝：Agent 相关但属于前端
-│       ├── 15_frontend.json           # 拒绝：英文前端标题
-│       ├── 16_testing.json            # 拒绝：LLM 相关但属于测试
-│       ├── 17_testing.json            # 拒绝：英文测试标题
-│       ├── 18_cv_algorithm.json       # 拒绝：CV 算法
-│       ├── 19_cv_algorithm.json       # 拒绝：中文计算机视觉
-│       └── 20_sales.json              # 拒绝：销售/排除关键词
+│   ├── browser/
+│   │   ├── boss_detail.html
+│   │   ├── boss_search.html
+│   │   ├── nowcoder_detail.html
+│   │   └── nowcoder_search.html
+│   ├── evaluation/
+│   │   └── gold.json
+│   ├── jobs/
+│   │   ├── 01_agent_engineer.json
+│   │   ├── 02_llm_application.json
+│   │   ├── 03_ai_backend.json
+│   │   ├── 04_rag.json
+│   │   ├── 05_chinese_llm.json
+│   │   ├── 06_agent_tools.json
+│   │   ├── 07_rag_platform.json
+│   │   ├── 08_llm_engineering.json
+│   │   ├── 09_agent_workflow.json
+│   │   ├── 10_llm_backend.json
+│   │   ├── 11_rag_engineer.json
+│   │   ├── 12_agent_id_duplicate.json
+│   │   ├── 13_llm_url_duplicate.json
+│   │   ├── 14_frontend.json
+│   │   ├── 15_frontend.json
+│   │   ├── 16_testing.json
+│   │   ├── 17_testing.json
+│   │   ├── 18_cv_algorithm.json
+│   │   ├── 19_cv_algorithm.json
+│   │   └── 20_sales.json
+│   └── candidate.example.json
+├── migrations/
+│   ├── versions/
+│   │   └── 0001_agent_state.py
+│   └── env.py
+├── scripts/
+│   ├── api_smoke.py
+│   ├── approval_smoke.py
+│   ├── browser_smoke.py
+│   ├── dashboard_smoke.py
+│   ├── deployment_check.py
+│   ├── mcp_smoke.py
+│   ├── platform_smoke.py
+│   └── workflow_smoke.py
 ├── tests/
-│   ├── conftest.py                    # 测试候选人及岗位工厂
+│   ├── integration/
+│   │   ├── test_agent_graph.py
+│   │   ├── test_http_api.py
+│   │   ├── test_mcp_protocol.py
+│   │   ├── test_relational_storage.py
+│   │   └── test_workflow.py
 │   ├── unit/
-│   │   ├── test_models.py             # 模型约束、序列化、时间与默认值
-│   │   ├── test_config.py             # 配置优先级、路径、错误值
-│   │   ├── test_mock_adapter.py       # Mock 查询、详情、损坏文件
-│   │   ├── test_filter.py             # 业务筛选及边界条件
-│   │   ├── test_deduplication.py      # 规范化、去重与保留身份参数
-│   │   └── test_storage.py            # 事务、幂等、状态及候选人隔离
-│   └── integration/
-│       └── test_workflow.py           # 实际 CLI、重启、批准、URL 别名与错误路径
-└── docs/
-    ├── architecture.md                # 当前实现、设计理由与阶段边界
-    ├── file-guide.md                  # 本文件：完整源码目录与职责
-    └── phase-0-1-report.md             # 续做文件清单、验收与未开始工作
+│   │   ├── test_approval.py
+│   │   ├── test_browser_adapter.py
+│   │   ├── test_browser_session.py
+│   │   ├── test_config.py
+│   │   ├── test_deduplication.py
+│   │   ├── test_evaluation_metrics.py
+│   │   ├── test_filter.py
+│   │   ├── test_intelligence.py
+│   │   ├── test_manual_login.py
+│   │   ├── test_mock_adapter.py
+│   │   ├── test_models.py
+│   │   ├── test_nowcoder_adapter.py
+│   │   ├── test_reliability.py
+│   │   └── test_storage.py
+│   └── conftest.py
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── .python-version
+├── Dockerfile
+├── README.md
+├── alembic.ini
+├── compose.yaml
+├── pyproject.toml
+├── requirements-dev.txt
+├── requirements.lock.txt
+└── requirements.txt
 ```
 
-工作区还有自动生成且不应提交的目录：
+## 主要文件职责
 
-| 路径 | 作用 |
+| 入口或模块 | 阅读时关注什么 |
 | --- | --- |
-| `.venv/` | 上次已配置的 Python 3.12.10 虚拟环境与依赖；本次沿用 |
-| `.runtime/` | 上次环境依赖的本地 Python 发行包；本次保持不变 |
-| `data/jobpilot.db` | 运行演示生成的候选人、11 个岗位、11 个申请记录 |
-| `.pytest_cache/`、各层 `__pycache__/` | 测试缓存与 Python 字节码 |
+| app/main.py | 原 Phase 1 可见流水线，理解一次搜索的输入和输出 |
+| app/models | Pydantic 模型、候选人证据、岗位、动作快照与用量 |
+| app/services/filter_service.py | 确定性筛选规则与拒绝原因 |
+| app/services/analysis_service.py | 结构化 JD 和原文引用校验 |
+| app/services/matching_service.py | 明确技能匹配、部分具备与缺失证据 |
+| app/services/greeting_service.py | 用真实证据编号组织草稿 |
+| app/services/action_service.py | 批准消费、未知结果和人工核查 |
+| app/adapters | 平台差异留在数据入口，Mock 保留离线能力 |
+| app/browser | 集中选择器、可信 URL、沙箱、资料锁与人工登录 |
+| app/workflow/graph.py | State、节点、条件边、循环、Interrupt |
+| app/workflow/runtime.py | 资源生命周期、Checkpointer 和执行器注入 |
+| app/storage | SQLite 兼容入口和新的关系存储 |
+| migrations | 固定迁移版本，避免修改模型后旧迁移随之变化 |
+| app/api | HTTP 鉴权、单工作线程、状态持久化与 SSE |
+| app/web | 无前端构建工具的中文工作台 |
+| app/tools、app/mcp_client.py、app/mcp_server.py | 对比进程内函数分派与 MCP 协议传输 |
+| app/evaluation | 合成金标数据、指标范围、恢复场景和用量统计 |
+| scripts | 可单独运行的关键功能演示，不是生产入口 |
 
-本轮没有修改此前的模型、20 个岗位数据、候选人示例或筛选规则实现。具体续做文件清单见验收记录。尚未初始化 Git，因此这里的“新增/修改”相对于本次续做开始时的磁盘检查，不是提交间差异。
+## 推荐学习顺序
+
+1. 跑 `app.main`，对照 `main.py`、CandidateProfile 和 JobPosting 看数据如何流动。
+2. 读 MockJobAdapter、fixtures 和对应测试，理解输入校验及可重复 Demo。
+3. 读 normalization、filter、deduplication，区分确定性规则和语义分析。
+4. 读 SQLiteTracker，理解主键、唯一约束、事务、状态迁移和幂等导入。
+5. 读 analysis 模型、LLMClient 和 OfflineLLMClient，理解结构化输出与测试替身。
+6. 读匹配及草稿服务，追踪一句候选人陈述怎样找到原文证据。
+7. 读 PendingAction、ActionStore 和 ApprovalService，先理解审批边界再看执行。
+8. 读 graph.py 与 test_agent_graph.py，逐步画出暂停、恢复和按岗位循环的位置。
+9. 读 relational.py、Alembic、worker.py、FastAPI，再用 Dashboard 观察持久状态。
+10. 最后读浏览器、MCP、Evaluation 和部署文件，思考这些机制分别解决什么真实问题。
+
+## 最值得面试讲解的 10 个技术点
+
+1. **平台解耦**：多个 Adapter 输出统一 JobPosting，过滤、匹配与图无需包含招聘站点分支。
+2. **结构化输出仍要验真**：Pydantic 检查结构，原文引用检查事实来源，两者各管一层。
+3. **候选人证据约束**：模型选择已有编号，程序引用原文，避免把学习中技能或未知经历写成事实。
+4. **确定性逻辑的边界**：过滤、去重和状态机使用普通 Python，减少成本并提高可测试性。
+5. **审批绑定快照**：完整 payload 的摘要绑定候选人、目标、正文，旧页面不能批准新内容。
+6. **至少一次恢复与至多一次发送的冲突**：图可以重放，但批准只能原子领取；未知发送结果必须人工核查，不能宣称网络操作天然 exactly-once。
+7. **Checkpoint 与业务状态分离**：图保存执行位置，关系表保存岗位、审批和申请事实，两者都需要一致的任务身份。
+8. **普通工具与 MCP 的区别**：一个是本进程方法分派，一个增加握手、序列化和进程传输；协议不自动带来权限隔离。
+9. **评估分母与范围**：金标样本、工具路由、合成页面和真实网站不能混成一个成功率；无数据时保留未知。
+10. **按规模选择可靠性机制**：单机文件锁、有限线程、令牌桶和日志轮转先满足当前需求；需要跨主机队列时才考虑 Redis。
+
+讲解时要主动说明真实模型、平台发送和 Docker 尚未验收，不能把设计能力或离线测试包装成生产结果。
