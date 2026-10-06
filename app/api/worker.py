@@ -27,7 +27,15 @@ class WorkflowWorker:
                 raise InvalidTransitionError("任务队列已满，请等待现有任务暂停或结束")
             if run_id in self.futures and not self.futures[run_id].done():
                 raise InvalidTransitionError("任务正在运行，请勿重复恢复")
-            self.futures[run_id] = self.pool.submit(self.run, run_id)
+            # 返回 202 前先持久化排队状态。否则客户端可能把旧 PAUSED 当成新一轮结果。
+            previous = self.runs.get(run_id)
+            self.runs.update(run_id, "QUEUED", error=None)
+            try:
+                self.futures[run_id] = self.pool.submit(self.run, run_id)
+            except RuntimeError:
+                # 服务关闭期间可能拒绝新任务；恢复原状态，避免留下永远排队的记录。
+                self.runs.update(run_id, previous["status"], error=previous.get("error"))
+                raise InvalidTransitionError("工作线程已停止，请重新启动服务后恢复") from None
 
     def run(self, run_id):
         """暂停和失败均保存可恢复状态；不在服务重启时擅自重放发送。"""

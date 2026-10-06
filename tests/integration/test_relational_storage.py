@@ -126,3 +126,11 @@ def test_postgres_checkpoint_roundtrip(tmp_path):
                       "candidate": profile.model_dump(mode="json")}, config)
     with open_graph(tmp_path, database_url=url) as (graph, actions):
         assert graph.get_state(config).next == ("review",)
+        action = actions.get(graph.get_state(config).values["action_id"])
+        actions.decide(action.id, action.digest, True, "postgres-test-human")
+        graph.invoke(Command(resume=True), config)
+        assert actions.get(action.id).status == "SUCCEEDED"
+    with open_graph(tmp_path, database_url=url) as (graph, actions):
+        assert graph.get_state(config).next == ("review",)
+        assert graph.get_state(config).values["index"] == 1
+        assert actions.get(action.id).status == "SUCCEEDED"

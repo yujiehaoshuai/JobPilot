@@ -28,7 +28,7 @@ services:
     build: .
     init: true
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${JOBPILOT_HTTP_PORT:-8000}:8000"
     environment:
       AGENT_DATABASE_URL: postgresql://jobpilot:${POSTGRES_PASSWORD}@db:5432/jobpilot
       JOBPILOT_API_TOKEN: ${JOBPILOT_API_TOKEN:?请在 .env 设置 JOBPILOT_API_TOKEN}

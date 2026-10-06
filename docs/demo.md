@@ -69,6 +69,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 .\.venv\Scripts\python.exe -m scripts.browser_smoke
 .\.venv\Scripts\python.exe -m scripts.platform_smoke nowcoder
 .\.venv\Scripts\python.exe -m scripts.workflow_smoke
+.\.venv\Scripts\python.exe -m scripts.recovery_smoke
 .\.venv\Scripts\python.exe -m scripts.dashboard_smoke
 .\.venv\Scripts\python.exe -m scripts.mcp_smoke
 .\.venv\Scripts\python.exe -m app.evaluation.runner --browser
@@ -97,6 +98,8 @@ docker compose down
 Compose 按 PostgreSQL 健康检查 → Alembic 迁移 → API 的顺序启动，数据使用命名卷。普通停止不要加 `-v`，否则会删除卷。默认仅映射本机 8000 端口。容器用于离线 Demo/API；人工招聘网站登录需有界面的本机环境。本机尚无 Docker，因此镜像构建、容器沙箱兼容性及真实 PostgreSQL 联调未验收，不能宣称已完成部署测试。若主机不支持浏览器沙箱，应修正运行条件，不自动关闭安全保护。
 
 ## 当前限制
+
+独立 Docker 全流程和 CI 说明见 [验收与接手文档](verification.md)。可用 `python -m scripts.docker_smoke` 在 Docker 可用时创建隔离测试部署，避免手动混用个人数据库。此脚本仍未在本机完成容器实测。
 
 - BOSS 普通 Edge 登录后可搜索并查看详情，已由用户确认；程序化访问仍在 HTTP 200 后跳到 about:blank。单次导航诊断未记录空白跳转原因，读取尚未验收，停止重复访问；详见 browser-login-diagnosis.md。
 - 牛客真实搜索要求登录或验证，本地 fixtures 验证不等于线上成功。

@@ -4,9 +4,11 @@ JobPilot 的最终目标是一个有状态的 AI 求职助手：基于候选人�
 
 **当前已实现 Phase 0–12 的主要离线流程与平台读取接口；Phase 13 未完成。真实模型、招聘平台操作和容器部署仍有验收缺口。默认运行离线。**
 
-最新验证（2026-10-06）：174 项测试通过，1 项 PostgreSQL 测试因未配置专用测试库跳过；简历导入、Dashboard 回归和离线 Evaluation 质量门禁通过。真实发送仍由保护执行器暂停，不能将离线演示当成已完成真实投递。
+最新验证（2026-10-06）：176 项测试通过，1 项 PostgreSQL 测试因未配置专用测试库跳过；简历导入、Dashboard、真实 HTTP 服务重启恢复和离线 Evaluation 门禁通过。真实发送仍由保护执行器暂停，不能将离线演示当成已完成真实投递。
 
 BOSS：用户确认普通 Edge 可以搜索并查看岗位详情；程序化访问仍在 HTTP 200 后跳到空白页，具体触发机制未确定，已停止继续访问。登录资料保留，无需反复登录。
+
+新增隔离 Docker 验收脚本和 Python 3.12 CI 配置；本机缺少 Docker，远端 CI 尚未运行。独立验证命令与接手事项见 [验收文档](docs/verification.md)。
 
 完整入口：[启动与 Demo](docs/demo.md) · [当前架构](docs/architecture.md) · [目录树与学习路线](docs/file-guide.md) · [阶段验收和提交](docs/phases.md) · [BOSS 登录诊断](docs/browser-login-diagnosis.md) · [续做记录](docs/resume.md)。
 
