@@ -20,6 +20,22 @@ def main():
             session.context.route("**/*", route)
             jobs = BossAdapter(session).search_jobs(["Python"])
             assert len(jobs) == 1 and jobs[0].source_job_id == "demo01"
+            # 回归真实排查发现的导航栏误命中，同时模拟隐藏空结果和延迟渲染。
+            def delayed_route(request):
+                filename = "boss_detail.html" if "/job_detail/" in request.request.url else "boss_search_delayed.html"
+                request.fulfill(body=(base / filename).read_text("utf-8"), content_type="text/html")
+            session.context.unroute("**/*", route)
+            session.context.route("**/*", delayed_route)
+            delayed_jobs = BossAdapter(session).search_jobs(["Python"])
+            assert len(delayed_jobs) == 1 and delayed_jobs[0].source_job_id == "demo01"
+            session.page.set_content('<title>岗位搜索</title><div class="login-dialog" hidden>隐藏模板</div>'
+                                     '<div class="login-dialog">请手动登录</div>')
+            try:
+                session.ensure_ready()
+            except BrowserPausedError:
+                print("延迟岗位读取、隐藏模板与可见登录弹窗验证通过")
+            else:
+                raise AssertionError("隐藏模板不能遮蔽真正可见的登录提示")
             session.page.set_content("<title>安全验证</title><div id='captcha'>请验证</div>")
             try:
                 session.ensure_ready()

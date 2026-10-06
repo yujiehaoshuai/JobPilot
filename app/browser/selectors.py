@@ -26,7 +26,8 @@ BOSS = SiteSpec(
     source="boss", home="https://www.zhipin.com", hosts=("www.zhipin.com", "zhipin.com"),
     search_path="/web/geek/job?query={query}",
     detail_pattern=r"/job_detail/([A-Za-z0-9_-]+)\.html",
-    links='a[href*="/job_detail/"]', title=".job-banner .name h1",
+    # 导航栏也有 /job_detail/ 链接，只有含 .html 的详情链接才是候选岗位。
+    links='a[href*="/job_detail/"][href*=".html"]', title=".job-banner .name h1",
     company=".sider-company .company-info a, .company-info a",
     description=".job-sec-text", city=".job-banner .text-city", salary=".job-banner .salary",
     empty=".job-empty, .search-empty",

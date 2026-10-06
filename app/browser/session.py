@@ -81,7 +81,8 @@ class BrowserSession:
         self.validate_url(self.page.url)
         if any(word in self.page.title() for word in CHALLENGE_TITLES):
             raise BrowserPausedError("请手动登录或完成网站验证，然后恢复任务")
-        if any(self.page.locator(selector).first.is_visible() for selector in CHALLENGE_SELECTORS):
+        # 同一页面可能同时保留隐藏模板和可见弹窗，不能只检查第一个元素。
+        if any(self.page.locator(f":is({selector}):visible").count() for selector in CHALLENGE_SELECTORS):
             raise BrowserPausedError("检测到登录或验证码界面，请人工处理后恢复")
 
     def read(self, url: str, ready_selector: str) -> str:
@@ -97,7 +98,10 @@ class BrowserSession:
             raise BrowserPausedError("平台拒绝访问或要求验证，请稍后人工检查")
         self.ensure_ready()
         try:
-            self.page.locator(ready_selector).first.wait_for(state="attached", timeout=self.timeout_ms)
+            # SPA 会先插入隐藏的空结果模板，再异步填充岗位。
+            # 等真正可见的结果，避免把模板或导航栏当成加载完成。
+            self.page.locator(f":is({ready_selector}):visible").first.wait_for(
+                state="visible", timeout=self.timeout_ms)
         except PlaywrightTimeout:
             self.ensure_ready()
             raise JobParseError("页面加载超时或选择器已变化，请检查平台页面") from None

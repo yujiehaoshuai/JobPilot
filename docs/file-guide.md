@@ -21,6 +21,7 @@ JobPilot/
 │   │   └── worker.py
 │   ├── browser/
 │   │   ├── __init__.py
+│   │   ├── diagnostics.py
 │   │   ├── manual_login.py
 │   │   ├── selectors.py
 │   │   └── session.py
@@ -97,6 +98,7 @@ JobPilot/
 │   ├── browser/
 │   │   ├── boss_detail.html
 │   │   ├── boss_search.html
+│   │   ├── boss_search_delayed.html
 │   │   ├── nowcoder_detail.html
 │   │   └── nowcoder_search.html
 │   ├── evaluation/
@@ -134,6 +136,7 @@ JobPilot/
 │   ├── dashboard_smoke.py
 │   ├── deployment_check.py
 │   ├── mcp_smoke.py
+│   ├── navigation_smoke.py
 │   ├── platform_smoke.py
 │   └── workflow_smoke.py
 ├── tests/
@@ -146,6 +149,7 @@ JobPilot/
 │   ├── unit/
 │   │   ├── test_approval.py
 │   │   ├── test_browser_adapter.py
+│   │   ├── test_browser_diagnostics.py
 │   │   ├── test_browser_session.py
 │   │   ├── test_config.py
 │   │   ├── test_deduplication.py

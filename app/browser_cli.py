@@ -12,7 +12,7 @@ from app.config import PROJECT_ROOT
 def main() -> int:
     """登录状态留在 profiles，不输出 Cookie，也不自动解决验证码。"""
     parser = argparse.ArgumentParser(description="招聘平台只读浏览器")
-    parser.add_argument("command", choices=["login", "search"])
+    parser.add_argument("command", choices=["login", "search", "diagnose"])
     parser.add_argument("--query", default="Python")
     parser.add_argument("--limit", type=int, default=5)
     parser.add_argument("--channel", default="msedge")
@@ -37,6 +37,18 @@ def main() -> int:
                 input("请在浏览器中手动登录或完成验证；确认完成后按回车保存并关闭：")
                 session.ensure_ready()
                 print("浏览器会话已保存；登录是否可用还需通过只读搜索验证。")
+            elif args.command == "diagnose":
+                import json
+                from uuid import uuid4
+                from app.browser.diagnostics import diagnose_navigation
+                report = diagnose_navigation(session)
+                folder = PROJECT_ROOT / "data/diagnostics"
+                folder.mkdir(parents=True, exist_ok=True)
+                path = folder / f"{args.source}-navigation-{uuid4().hex}.json"
+                path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+                print(json.dumps(report, ensure_ascii=False, indent=2))
+                print(f"诊断报告：{path}")
+                return 0 if report["outcome"] == "page_observed" else 1
             else:
                 for job in adapter_type(session, args.limit).search_jobs([args.query]):
                     print(job.model_dump_json())

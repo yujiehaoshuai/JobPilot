@@ -30,6 +30,14 @@ def test_missing_structure_is_not_empty_search(adapter):
         adapter.parse_detail("<h1>缺少公司</h1>", "demo01")
 
 
+def test_navigation_link_is_not_a_job(adapter):
+    """导航和外站链接都不能充当有效岗位；有真实详情编号时才返回。"""
+    navigation = '<a href="https://www.zhipin.com/job_detail/">职位搜索</a>'
+    with pytest.raises(SelectorChangedError):
+        adapter.parse_links(navigation)
+    assert adapter.parse_links(navigation + '<a href="/job_detail/actual01.html">Python</a>') == ["actual01"]
+
+
 @pytest.mark.parametrize("url", ["http://www.zhipin.com/", "https://www.zhipin.com.evil.test/",
                                       "https://user:pass@www.zhipin.com/", "file:///etc/passwd"])
 def test_navigation_rejects_untrusted_urls(adapter, url):

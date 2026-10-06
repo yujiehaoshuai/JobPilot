@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>虚构异步搜索样本</title>
+<a href="/job_detail/">职位搜索</a>
+<div class="job-empty" hidden>暂无职位</div>
+<main id="results"></main>
+<script>
+// 模拟岗位晚于导航栏和隐藏模板出现，所有内容均为本地虚构数据。
+setTimeout(() => {
+  document.getElementById("results").innerHTML = '<a href="/job_detail/demo01.html">Python 岗位</a>';
+}, 300);
+</script></html>
