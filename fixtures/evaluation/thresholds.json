@@ -1,0 +1,10 @@
+{
+  "JD Extraction Accuracy": {"min": 0.6666666666666666},
+  "Skill Matching Accuracy": {"min": 1.0},
+  "Missing Skill Accuracy": {"min": 0.6666666666666666},
+  "Hallucinated Candidate Evidence Rate": {"max": 0.0},
+  "Tool Selection Accuracy": {"min": 1.0},
+  "Tool Argument Accuracy": {"min": 1.0},
+  "Task Completion Rate": {"min": 1.0},
+  "Recovery Success Rate": {"min": 1.0}
+}

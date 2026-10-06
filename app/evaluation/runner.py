@@ -20,6 +20,7 @@ from app.adapters.mock.adapter import MockJobAdapter
 from app.tools.jobs import ToolCallingAdapter
 from app.workflow.runtime import open_graph, graph_config
 from app.exceptions import LLMError
+from app.evaluation.gates import assess_report
 
 
 def workflow_measurement():
@@ -115,7 +116,8 @@ def evaluate(mode="offline", *, browser=False, workflow=True):
     metrics["Cost"] = {"value": sum(i["cost"] for i in usage) if all(i["cost"] is not None for i in usage) else None,
                        "scope": "配置单价后估算；未配置则未知"}
     return {"timestamp": datetime.now(UTC).isoformat(), "mode": mode, "dataset": "synthetic-gold-v1",
-            "metrics": metrics, "cases": rows, "usage": usage, "passed_evidence_gate": hallucinated == 0}
+            "metrics": metrics, "cases": rows, "usage": usage,
+            "passed_evidence_gate": claims > 0 and hallucinated == 0}
 
 
 def main():
@@ -123,13 +125,25 @@ def main():
     parser.add_argument("--mode", choices=["offline", "live"], default="offline")
     parser.add_argument("--browser", action="store_true")
     parser.add_argument("--output", type=Path, default=PROJECT_ROOT / "data/evaluations/latest.json")
+    parser.add_argument("--thresholds", type=Path, default=PROJECT_ROOT / "fixtures/evaluation/thresholds.json")
     args = parser.parse_args()
-    report = evaluate(args.mode, browser=args.browser)
+    try:
+        thresholds = json.loads(args.thresholds.read_text("utf-8"))
+        report = evaluate(args.mode, browser=args.browser)
+        report["quality_gate"] = assess_report(report, thresholds, browser_required=args.browser)
+        report["status"] = "passed" if report["quality_gate"]["passed"] else "failed"
+    except Exception as exc:
+        # 失败也覆盖本次报告，避免页面继续把上一次成功当成最新结果。
+        # 只记录异常类型，避免供应商响应或本机配置进入可分享报告。
+        # 这是 CLI 的最终错误边界，仍返回非零；不会继续后面的评估步骤。
+        report = {"timestamp": datetime.now(UTC).isoformat(), "mode": args.mode, "status": "failed",
+                  "error_type": type(exc).__name__, "quality_gate": {"passed": False, "checks": []}}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), "utf-8")
-    print(json.dumps(report["metrics"], ensure_ascii=False, indent=2))
+    print(json.dumps(report.get("metrics", {"error_type": report.get("error_type")}), ensure_ascii=False, indent=2))
+    print("质量门禁：" + ("通过" if report["quality_gate"]["passed"] else "未通过，请查看报告"))
     print(f"Report: {args.output}")
-    return 0 if report["passed_evidence_gate"] else 1
+    return 0 if report["quality_gate"]["passed"] else 1
 
 
 if __name__ == "__main__":

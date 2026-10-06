@@ -27,6 +27,7 @@ JobPilot/
 │   │   └── session.py
 │   ├── evaluation/
 │   │   ├── __init__.py
+│   │   ├── gates.py
 │   │   ├── metrics.py
 │   │   └── runner.py
 │   ├── llm/
@@ -105,7 +106,8 @@ JobPilot/
 │   │   ├── nowcoder_detail.html
 │   │   └── nowcoder_search.html
 │   ├── evaluation/
-│   │   └── gold.json
+│   │   ├── gold.json
+│   │   └── thresholds.json
 │   ├── jobs/
 │   │   ├── 01_agent_engineer.json
 │   │   ├── 02_llm_application.json
@@ -158,6 +160,7 @@ JobPilot/
 │   │   ├── test_config.py
 │   │   ├── test_deduplication.py
 │   │   ├── test_evaluation_metrics.py
+│   │   ├── test_evaluation_gates.py
 │   │   ├── test_filter.py
 │   │   ├── test_intelligence.py
 │   │   ├── test_manual_login.py

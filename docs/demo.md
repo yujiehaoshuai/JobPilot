@@ -78,6 +78,10 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 
 真实 PostgreSQL 集成测试需要专用 JOBPILOT_TEST_POSTGRES_URL；不能用生产库代替测试库。
 
+评估现在同时执行质量门禁：默认阈值见 `fixtures/evaluation/thresholds.json`。JD 提取与缺失技能至少达到当前离线基线 4/6，技能匹配、工具分派、任务完成和恢复必须全部通过；候选人证据幻觉必须为零且分母非零。添加 `--browser` 时还要求本地浏览器检查通过。这是六个合成样本的回归门槛，不代表生产准确率目标。
+
+可用 `--thresholds data/my-thresholds.json` 设置指标的 `min`/`max`，例如为 Latency、Token Usage（输入输出总和）、Cost 设置上限。配置成本门槛后，成本未知也会失败；不能通过自定义文件关闭零幻觉约束。报告包含 `status` 和逐项 `quality_gate.checks`；任何未达标或评估异常返回退出码 1，并写入本次失败结果，不沿用上次成功报告。人工审批率不要求趋近零，因为逐条审批是预期行为。
+
 ## Docker Compose
 
 在已安装 Docker 的机器中，先在本机 `.env` 填写 POSTGRES_PASSWORD 与 JOBPILOT_API_TOKEN，再执行：
