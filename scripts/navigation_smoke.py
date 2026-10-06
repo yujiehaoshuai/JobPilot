@@ -18,9 +18,13 @@ def main():
                 '<script>setTimeout(()=>location.replace("about:blank"),200)</script>'))
             report = diagnose_navigation(session, seconds=3)
             assert report["outcome"] == "paused" and report["final_target"] == "blank"
-            assert any(event.get("reason") == "scriptInitiated" and event["target"] == "blank"
-                       for event in report["navigation_events"]), report
-            print("Local navigation diagnostics / script redirect / pause: OK")
+            assert any(event.get("reason") == "scriptInitiated" and event["target_url"] == "about:blank"
+                       and event["page_id"] == "page-1" and event["is_main_frame"] is True
+                       for event in report["events"]), report
+            assert report["blank_grace"]["completed"] and report["blank_grace"]["observed_ms"] >= 2000
+            assert not session.page.is_closed()
+            assert not any(event["kind"] == "context.close" for event in report["events"])
+            print("Local navigation identity / script redirect / 2-second observation: OK")
 
 
 if __name__ == "__main__":

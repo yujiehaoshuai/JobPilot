@@ -19,11 +19,20 @@ def main() -> int:
     parser.add_argument("--source", choices=list(PLATFORMS), default="boss")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--manual", action="store_true", help="用本机普通 Edge 窗口人工登录")
+    parser.add_argument("--url", help="仅 diagnose：替换访问地址，复用同一平台资料和启动参数")
     args = parser.parse_args()
     if args.command == "login" and args.headless:
         parser.error("人工登录必须显示浏览器窗口")
     if args.manual and (args.command != "login" or args.channel != "msedge"):
         parser.error("--manual 仅用于本机 Edge 的 login 命令")
+    if args.url is not None:
+        if args.command != "diagnose":
+            parser.error("--url 仅用于 diagnose 对照实验")
+        from app.browser.diagnostics import diagnostic_url
+        try:
+            diagnostic_url(args.url)
+        except ValueError as exc:
+            parser.error(str(exc))
     site, adapter_type = PLATFORMS[args.source]
     try:
         if args.manual:
@@ -41,7 +50,7 @@ def main() -> int:
                 import json
                 from uuid import uuid4
                 from app.browser.diagnostics import diagnose_navigation
-                report = diagnose_navigation(session)
+                report = diagnose_navigation(session, url=args.url)
                 folder = PROJECT_ROOT / "data/diagnostics"
                 folder.mkdir(parents=True, exist_ok=True)
                 path = folder / f"{args.source}-navigation-{uuid4().hex}.json"
