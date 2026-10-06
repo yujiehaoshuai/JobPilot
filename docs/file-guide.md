@@ -41,7 +41,8 @@ JobPilot/
 │   │   ├── application.py
 │   │   ├── base.py
 │   │   ├── candidate.py
-│   │   └── job.py
+│   │   ├── job.py
+│   │   └── resume.py
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── action_service.py
@@ -50,7 +51,8 @@ JobPilot/
 │   │   ├── filter_service.py
 │   │   ├── greeting_service.py
 │   │   ├── matching_service.py
-│   │   └── normalization_service.py
+│   │   ├── normalization_service.py
+│   │   └── resume_service.py
 │   ├── storage/
 │   │   ├── __init__.py
 │   │   ├── actions.py
@@ -63,6 +65,7 @@ JobPilot/
 │   │   ├── api.html
 │   │   ├── app.js
 │   │   ├── index.html
+│   │   ├── resume.js
 │   │   └── style.css
 │   ├── workflow/
 │   │   ├── __init__.py
@@ -145,6 +148,7 @@ JobPilot/
 │   │   ├── test_http_api.py
 │   │   ├── test_mcp_protocol.py
 │   │   ├── test_relational_storage.py
+│   │   ├── test_resume_api.py
 │   │   └── test_workflow.py
 │   ├── unit/
 │   │   ├── test_approval.py
@@ -161,6 +165,7 @@ JobPilot/
 │   │   ├── test_models.py
 │   │   ├── test_nowcoder_adapter.py
 │   │   ├── test_reliability.py
+│   │   ├── test_resume.py
 │   │   └── test_storage.py
 │   └── conftest.py
 ├── .dockerignore

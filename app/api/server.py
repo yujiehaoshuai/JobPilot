@@ -22,6 +22,8 @@ from app.api.worker import WorkflowWorker
 from app.exceptions import JobPilotError
 from app.reliability import TokenBucket
 from app.services.action_service import resolve_after_review
+from app.models.resume import ResumeProfileRequest
+from app.services.resume_service import extract_resume, build_candidate, MAX_UPLOAD_BYTES
 
 
 class StartRun(DomainModel):
@@ -143,6 +145,28 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.get("/api/runs", dependencies=auth)
     def list_runs():
         return runs.list()
+
+    @app.post("/api/resume/extract", dependencies=auth)
+    async def resume_text(request: Request, format: Literal["txt", "docx"]):
+        """逐块限制上传大小，不依赖客户端声明长度；文件仅在内存处理。"""
+        data = bytearray()
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > MAX_UPLOAD_BYTES:
+                raise HTTPException(413, "简历文件不能超过 1 MB")
+            data.extend(chunk)
+        try:
+            content = await asyncio.to_thread(extract_resume, bytes(data), format)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        return {"text": content, "notice": "请核对正文并逐条确认技能和程度；未读取图片、页眉页脚或批注。"}
+
+    @app.post("/api/resume/profile", dependencies=auth, response_model=CandidateProfile)
+    def resume_profile(body: ResumeProfileRequest):
+        """返回可编辑的新资料，不保存原始文件，不自动创建求职任务。"""
+        try:
+            return build_candidate(body)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
 
     @app.get("/api/runs/{run_id}", dependencies=auth)
     def get_run(run_id: str):

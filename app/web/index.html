@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobPilot · 求职工作台</title><link rel="stylesheet" href="/static/style.css">
-<script src="/static/app.js" defer></script></head>
+<script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script></head>
 <body>
 <header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>让每一次沟通都有依据</small></div></div>
 <span class="badge">本地工作台 · 人工审批</span></header>
@@ -16,7 +16,18 @@
 <p class="hint">首次启动保存在 data/agent/api-token.txt；令牌只留在当前页面。</p>
 <div class="row"><button id="example" class="secondary">载入虚构示例</button><label class="file">导入 JSON<input id="profile-file" type="file" accept=".json,application/json"></label></div>
 <label for="profile">Candidate Profile</label><textarea id="profile" rows="9" spellcheck="false" placeholder="粘贴真实资料 JSON，或先载入虚构示例"></textarea>
-<details><summary>资料填写说明</summary><p class="hint">skills 每项填写 skill、level 和 evidence。level 可选 learning、project_experience、professional；evidence 请填写自己的真实经历。原始简历请先整理为这些字段，程序不会推测经历。</p></details>
+<details><summary>资料填写说明</summary><p class="hint">skills 每项填写 skill、level 和 evidence。level 可选 learning、project_experience、professional；evidence 请填写自己的真实经历。</p></details>
+<details id="resume-builder"><summary>从简历原文整理资料</summary>
+<p class="hint">支持 UTF-8 文本、Markdown、Word DOCX（最多 1 MB）。PDF 或扫描件请先复制、核对正文；图片和页眉页脚不读取。</p>
+<label class="file">导入简历正文<input id="resume-file" type="file" accept=".txt,.md,.docx"></label>
+<label for="resume-text">简历正文（可粘贴；选中文字后可作为证据）</label><textarea id="resume-text" rows="7" maxlength="100000"></textarea>
+<label for="resume-name">姓名</label><input id="resume-name" maxlength="100">
+<div class="row"><div><label for="resume-roles">目标岗位（逗号分隔）</label><input id="resume-roles"></div><div><label for="resume-cities">目标城市（逗号分隔）</label><input id="resume-cities"></div></div>
+<div id="resume-skills"></div><button id="resume-add" class="secondary" type="button">添加技能证据</button>
+<label class="confirmation"><input id="resume-confirm" type="checkbox">我已核对引用含义，确认技能程度，没有把未做过的事情写成经历。</label>
+<button id="resume-build" type="button">生成新资料 JSON</button>
+<p class="hint">生成后会替换上方编辑框，请检查并补充求职条件，再开始任务。仅引用文字相同不能证明经历，需本人核对。</p>
+</details>
 <label for="query">岗位关键词（可选）</label><input id="query" placeholder="例如 Python、Agent">
 <div class="row"><div><label for="source">岗位来源</label><select id="source">
 <option value="mock">Mock 离线样本</option>

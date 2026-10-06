@@ -38,6 +38,8 @@ flowchart TD
 
 ## 证据和副作用约束
 
+简历入口先提取文本或 DOCX 正文，再由用户标注技能、程度和原文引用。`resume_service` 检查引用逐字存在、技能名称完整出现且没有重复；不进行模型推断。`/api/resume/extract` 和 `/api/resume/profile` 复用 API 鉴权，前者逐块限制上传，后者只返回候选人 JSON。原始文件不落盘，开始任务才保存确认后的资料。已有 CandidateProfile 和匹配服务无需依赖文档格式；引用一致只能证明来源，语义和经历真实性仍由本人核对。
+
 JD 结构化输出仍要逐项核对原文引用。CandidateMatcher 只匹配 CandidateProfile 中明确出现的技能与证据；学习中的技能不能升级成已熟练。模型只选择草稿证据编号，程序引用用户原文组织文本，不自由补写项目经历。Pydantic 保证结构，不保证经历真实，输入材料的事实仍需用户确认。
 
 PendingAction 保存候选人、岗位、正文和证据的完整快照，SHA-256 摘要绑定审批内容。批准不等于立即可靠送达。执行器先原子地将 APPROVED 改为 EXECUTING，只读预检查失败可以恢复批准；进入发送后任何未知结果都成为 UNCERTAIN，禁止自动重试。
