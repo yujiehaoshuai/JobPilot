@@ -111,27 +111,48 @@ async function refreshRuns() {
 }
 async function watchRun(runId) {
   if (streamController) streamController.abort();
-  streamController = new AbortController();
-  try {
-    const response = await api(`/api/runs/${runId}/events`,{signal:streamController.signal});
-    const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer="";
-    while (true) {
-      const {value,done} = await reader.read(); if (done) break;
-      buffer += decoder.decode(value,{stream:true});
-      let position;
-      while ((position=buffer.indexOf("\n\n")) >= 0) {
-        const block=buffer.slice(0,position); buffer=buffer.slice(position+2);
-        const line=block.split("\n").find(item=>item.startsWith("data: "));
-        if (line && currentRun===runId) { showState(JSON.parse(line.slice(6))); await showActions(); }
+  const controller=new AbortController();
+  streamController=controller;
+  let failures=0;
+  // 服务端会定期结束状态流；只要任务仍在执行，就取新快照并续接。
+  while (currentRun===runId && !controller.signal.aborted) {
+    try {
+      const response=await api(`/api/runs/${runId}/events`,{signal:controller.signal});
+      const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer="";
+      while (true) {
+        const {value,done}=await reader.read(); if(done)break;
+        buffer+=decoder.decode(value,{stream:true});
+        let position;
+        while ((position=buffer.indexOf("\n\n"))>=0) {
+          const block=buffer.slice(0,position); buffer=buffer.slice(position+2);
+          const line=block.split("\n").find(item=>item.startsWith("data: "));
+          if(line && currentRun===runId && !controller.signal.aborted) {
+            showState(JSON.parse(line.slice(6))); await showActions();
+          }
+        }
       }
+      if(currentRun!==runId || controller.signal.aborted)return;
+      const run=await (await api(`/api/runs/${runId}`,{signal:controller.signal})).json();
+      if(currentRun!==runId || controller.signal.aborted)return;
+      showState(run); await showActions(); await refreshRuns();
+      if(["PAUSED","FAILED","COMPLETED"].includes(run.status))return;
+      failures=0;
+    } catch(error) {
+      if(controller.signal.aborted || currentRun!==runId)return;
+      failures+=1;
+      if(failures>=3){message("状态连接连续失败，请刷新任务列表后重新选择任务。已保存的进度不会丢失。",true);return;}
     }
-    await refreshRuns();
-  } catch (error) { if (error.name !== "AbortError") message(error.message,true); }
+    // 只重连只读状态查询，不重复提交任务、审批或发送操作。
+    await new Promise(resolve=>setTimeout(resolve,1000));
+  }
 }
 async function selectRun(runId) {
   currentRun=runId;
-  showState(await (await api(`/api/runs/${runId}`)).json()); await showActions();
-  void watchRun(runId);
+  if(streamController)streamController.abort();
+  const run=await (await api(`/api/runs/${runId}`)).json();
+  if(currentRun!==runId)return;
+  showState(run); await showActions();
+  if(currentRun===runId)void watchRun(runId);
 }
 byId("example").onclick=()=>guarded(async()=>{byId("profile").value=JSON.stringify(await (await api("/api/candidate-example")).json(),null,2); message("已载入虚构示例，仅用于演示。请勿把示例经历当成自己的经历。");},byId("example"));
 byId("profile-file").onchange=event=>guarded(async()=>{const file=event.target.files[0]; if(!file)return; if(file.size>500000)throw new Error("资料文件过大"); byId("profile").value=JSON.stringify(JSON.parse(await file.text()),null,2); message("资料已载入页面，开始任务后保存到本机数据库。");});

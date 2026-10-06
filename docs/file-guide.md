@@ -4,6 +4,9 @@
 
 ```text
 JobPilot/
+├── .github/
+│   └── workflows/
+│       └── verify.yml
 ├── app/
 │   ├── adapters/
 │   │   ├── mock/
@@ -97,7 +100,8 @@ JobPilot/
 │   ├── phase-0-1-report.md
 │   ├── phases.md
 │   ├── pycharm-interpreter-diagnosis.md
-│   └── resume.md
+│   ├── resume.md
+│   └── verification.md
 ├── fixtures/
 │   ├── browser/
 │   │   ├── boss_detail.html
@@ -140,9 +144,13 @@ JobPilot/
 │   ├── browser_smoke.py
 │   ├── dashboard_smoke.py
 │   ├── deployment_check.py
+│   ├── docker_smoke.py
 │   ├── mcp_smoke.py
 │   ├── navigation_smoke.py
 │   ├── platform_smoke.py
+│   ├── recovery_smoke.py
+│   ├── stream_smoke.py
+│   ├── system_smoke.py
 │   └── workflow_smoke.py
 ├── tests/
 │   ├── integration/
@@ -151,6 +159,7 @@ JobPilot/
 │   │   ├── test_mcp_protocol.py
 │   │   ├── test_relational_storage.py
 │   │   ├── test_resume_api.py
+│   │   ├── test_system_recovery.py
 │   │   └── test_workflow.py
 │   ├── unit/
 │   │   ├── test_approval.py
@@ -159,8 +168,8 @@ JobPilot/
 │   │   ├── test_browser_session.py
 │   │   ├── test_config.py
 │   │   ├── test_deduplication.py
-│   │   ├── test_evaluation_metrics.py
 │   │   ├── test_evaluation_gates.py
+│   │   ├── test_evaluation_metrics.py
 │   │   ├── test_filter.py
 │   │   ├── test_intelligence.py
 │   │   ├── test_manual_login.py
@@ -169,7 +178,8 @@ JobPilot/
 │   │   ├── test_nowcoder_adapter.py
 │   │   ├── test_reliability.py
 │   │   ├── test_resume.py
-│   │   └── test_storage.py
+│   │   ├── test_storage.py
+│   │   └── test_worker_queue.py
 │   └── conftest.py
 ├── .dockerignore
 ├── .env.example
@@ -195,6 +205,7 @@ JobPilot/
 | app/services/analysis_service.py | 结构化 JD 和原文引用校验 |
 | app/services/matching_service.py | 明确技能匹配、部分具备与缺失证据 |
 | app/services/greeting_service.py | 用真实证据编号组织草稿 |
+| app/services/resume_service.py、app/web/resume.js | 简历正文提取、人工确认和逐字引用校验 |
 | app/services/action_service.py | 批准消费、未知结果和人工核查 |
 | app/adapters | 平台差异留在数据入口，Mock 保留离线能力 |
 | app/browser | 集中选择器、可信 URL、沙箱、资料锁与人工登录 |
@@ -206,6 +217,8 @@ JobPilot/
 | app/web | 无前端构建工具的中文工作台 |
 | app/tools、app/mcp_client.py、app/mcp_server.py | 对比进程内函数分派与 MCP 协议传输 |
 | app/evaluation | 合成金标数据、指标范围、恢复场景和用量统计 |
+| app/evaluation/gates.py | 零幻觉门禁、有效分母和可配置质量阈值 |
+| scripts/recovery_smoke.py、scripts/docker_smoke.py | 真实 HTTP 重启恢复和隔离部署验收 |
 | scripts | 可单独运行的关键功能演示，不是生产入口 |
 
 ## 推荐学习顺序

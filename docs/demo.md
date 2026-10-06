@@ -71,6 +71,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 .\.venv\Scripts\python.exe -m scripts.workflow_smoke
 .\.venv\Scripts\python.exe -m scripts.recovery_smoke
 .\.venv\Scripts\python.exe -m scripts.dashboard_smoke
+.\.venv\Scripts\python.exe -m scripts.stream_smoke
 .\.venv\Scripts\python.exe -m scripts.mcp_smoke
 .\.venv\Scripts\python.exe -m app.evaluation.runner --browser
 ```

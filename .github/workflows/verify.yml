@@ -40,6 +40,7 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - run: python -m pytest -q --junitxml=data/ci/junit.xml
       - run: python -m scripts.dashboard_smoke
+      - run: python -m scripts.stream_smoke
       - run: python -m scripts.navigation_smoke
       - run: python -m scripts.platform_smoke nowcoder
       - run: python -m scripts.mcp_smoke

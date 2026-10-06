@@ -8,13 +8,14 @@
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m scripts.dashboard_smoke
 .\.venv\Scripts\python.exe -m scripts.recovery_smoke
+.\.venv\Scripts\python.exe -m scripts.stream_smoke
 .\.venv\Scripts\python.exe -m app.evaluation.runner --browser
 .\.venv\Scripts\python.exe -m scripts.deployment_check
 ```
 
 恢复脚本会创建临时 SQLite 数据库，启动本机 HTTP 服务，等待审批后关闭服务，再建立新实例。它模拟批准一条草稿、拒绝其余草稿，确认 11 岗位流程完成且 Tracker 没有记录真实 CONTACTED。所有资料来自虚构 fixtures，不使用个人数据库。
 
-2026-10-06 本机结果：176 项测试通过、1 项专用 PostgreSQL 测试跳过；真实 HTTP 重启恢复和配置预检通过。简历导入与 Dashboard 回归、离线评估门禁此前已通过。恢复请求已修复为先保存 QUEUED 再返回，避免客户端读到上一轮 PAUSED。
+2026-10-06 本机结果：176 项测试通过、1 项专用 PostgreSQL 测试跳过；真实 HTTP 重启恢复、Dashboard、SSE 续接和配置预检通过，离线评估门禁通过。恢复请求已修复为先保存 QUEUED 再返回，避免客户端读到上一轮 PAUSED。SSE 正常结束后会续接；连续三次连接失败会停止并提示重新选择任务，重连只发起 GET，不重放任务或审批。
 
 ## Docker 完整验收
 
