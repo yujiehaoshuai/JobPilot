@@ -6,6 +6,8 @@
 
 ## 先运行
 
+Windows 可直接双击根目录 **start.cmd**。它只使用现有环境；运行时保持窗口打开，停止按 Ctrl+C。
+
 沿用已有 Python 3.12 和 `.venv`，不要重建环境，也不要删除它依赖的 `.runtime`。
 
 ```powershell
@@ -32,6 +34,8 @@ cd D:\JobPilot
 
 令牌来自 `data/shixiseng-demo/api-token.txt`（配置值优先）。刷新任务列表，选择实习僧任务。该目录只存在于本机，不随 Git 分发；其中 `candidate-demo.json` 明确标注虚构，`live-report.json` 保存验收结果。
 
+端口被占用时使用 `start.cmd --port 8001`；查看已保存的演示可用 `start.cmd --data data/shixiseng-demo`。
+
 ## 命令行与测试
 
 ```powershell
@@ -44,7 +48,9 @@ cd D:\JobPilot
 .\.venv\Scripts\python.exe -m app.evaluation.runner
 ```
 
-当前 **212 项测试通过，1 项 PostgreSQL 测试因无专用测试库跳过**；本地 Dashboard 回归、真实岗位页面展示、离线 Evaluation 门禁通过。离线词表的 JD 技能集合准确率为 4/6，证据幻觉为 0/10，仅代表合成样本。配置 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 后可改用 `--mode live`；Key 只放本机 `.env`。
+当前 **225 项测试通过，1 项 PostgreSQL 测试因无专用测试库跳过**；本地 Dashboard 回归、真实岗位页面展示、离线 Evaluation 门禁通过。离线词表的 JD 技能集合准确率为 4/6，证据幻觉为 0/10，仅代表合成样本。配置 `LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY` 后可改用 `--mode live`；Key 只放本机 `.env`；缺配置时会在创建任务前提示。
+
+新增真实验收：尝试读取 21 条详情，得到 20 条有效岗位，1 条特殊字体岗位明确跳过；第二页与空搜索结果均通过。页面可选 5/10/20/40 条，CLI 使用 `--limit`。
 
 原 Phase 1 教学入口仍为 `python -m app.main`。CLI 和 Dashboard 的历史数据库入口不同，使用方法见 [Demo](docs/demo.md)，不要手工混用数据库。
 
@@ -63,7 +69,7 @@ cd D:\JobPilot
 
 ## 当前边界
 
-- 实习僧只读第一页，默认最多 5 条详情；请求至少间隔一秒。遇到 401/403/429 或验证会暂停；不伪装浏览器、不解码保护字体。岗位是否仍在招，要去原页核对。
+- 实习僧默认最多 5 条详情，每个关键词最多两页，请求至少间隔一秒。数量上限包含不可读的详情尝试；个别特殊字体岗位会跳过并说明原因，全部不可读则报错。遇到 401/403/429 或验证会暂停；不伪装浏览器、不解码保护字体。岗位是否仍在招，要去原页核对。
 - BOSS 普通浏览器可用，但 Playwright 跳空白的问题未解决；扩展方案还未完成真实验收。牛客真实读取仍待验证。这两个来源在 Dashboard 暂时禁用。
 - 默认只匹配，不生成草稿或动作。已有审批和模拟流程保留；真实发送执行器尚未开放，后续也必须逐条批准。
 - Docker Compose 和 PostgreSQL 配置已存在，本机尚未完成真实部署验收。无需为当前单机流程引入 Redis。

@@ -23,9 +23,11 @@ class UnverifiedPlatformExecutor:
 
 @contextmanager
 def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None, database_url=None,
-               transport="direct"):
+               transport="direct", search_limit: int | None = None):
     """按来源选择公开 HTTP 或浏览器；Mock 默认运行完全离线。"""
     from contextlib import ExitStack
+    # 在打开任何平台资源之前检查模型配置；缺配置不能留下半开的浏览器。
+    client = client or create_llm(mode)
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
     with ExitStack() as stack:
@@ -34,11 +36,12 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
         if adapter is None:
             if transport == "mcp":
                 from app.mcp_client import MCPJobAdapter
-                adapter = MCPJobAdapter(source)
+                adapter = MCPJobAdapter(source, search_limit=search_limit)
             elif transport == "direct":
                 from app.adapters.factory import open_adapter
                 from app.tools.jobs import ToolCallingAdapter
-                adapter = ToolCallingAdapter(stack.enter_context(open_adapter(source)))
+                adapter = ToolCallingAdapter(stack.enter_context(open_adapter(source, limit=search_limit)),
+                                             search_limit=search_limit)
             else:
                 raise ValueError("工具连接方式必须为 direct 或 mcp")
         from app.runtime_config import setting
@@ -59,7 +62,7 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
         else:
             saver = stack.enter_context(SqliteSaver.from_conn_string(str(data_dir / "checkpoints.db")))
         executor = MockActionExecutor() if source == "mock" else UnverifiedPlatformExecutor()
-        yield build_graph(adapter, client or create_llm(mode), actions,
+        yield build_graph(adapter, client, actions,
                           ApprovalService(actions, executor), tracker, saver), actions
 
 

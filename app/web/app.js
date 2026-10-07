@@ -54,6 +54,7 @@ function showState(run) {
   if (state.analysis_only) byId("run-detail").append(element("p","本任务只搜索和匹配，不生成沟通草稿。","hint"));
   byId("run-detail").append(element("p",`已处理 ${state.index || 0} / ${(state.jobs || []).length} 个岗位`,"hint"));
   if (run.error) byId("run-detail").append(element("p",run.error));
+  for (const warning of state.source_warnings || []) byId("run-detail").append(element("p",warning,"hint"));
   for (const item of run.interrupts || []) if (["browser","action_recovery"].includes(item.kind)) byId("run-detail").append(element("p",item.message));
   byId("resume").hidden = !["PAUSED","FAILED","RUNNING"].includes(run.status);
   const results = byId("results"); results.replaceChildren();
@@ -65,7 +66,8 @@ function showState(run) {
     const link = element("a","查看岗位原页"); link.href=row.job.url; link.target="_blank"; link.rel="noopener noreferrer"; card.append(link);
     showMatch(card,row.match); card.append(element("p",row.outcome === "MATCHED" ? "有技能匹配，仍需核对完整要求" : statusNames[row.outcome] || row.outcome,"hint")); results.append(card);
   }
-  if (!rows.length) results.append(element("p",run.status === "COMPLETED" ? "本轮没有通过规则筛选的岗位，请查看排除原因。" : "等待岗位分析","muted"));
+  const emptyMessage = state.discovery?.received === 0 ? "没有搜索到岗位，可以换个关键词再试。" : "本轮没有通过规则筛选的岗位，请查看排除原因。";
+  if (!rows.length) results.append(element("p",run.status === "COMPLETED" ? emptyMessage : "等待岗位分析","muted"));
   for (const row of state.rejected_jobs || []) {
     const detail = element("details"); detail.append(element("summary",`已排除：${row.job.title} · ${row.job.company}`));
     for (const reason of row.reasons) detail.append(element("p",reason,"hint"));
@@ -175,7 +177,9 @@ byId("profile-file").onchange=event=>guarded(async()=>{const file=event.target.f
 byId("start").onclick=()=>guarded(async()=>{
   const candidate=JSON.parse(byId("profile").value); const query=byId("query").value.trim();
   const analysisOnly=byId("analysis-only").checked;
-  const result=await (await api("/api/runs",{method:"POST",body:JSON.stringify({candidate,queries:query?[query]:[],source:byId("source").value,mode:byId("mode").value,analysis_only:analysisOnly})})).json();
+  const source=byId("source").value;
+  const searchLimit=source === "shixiseng" ? Number(byId("search-limit").value) : null;
+  const result=await (await api("/api/runs",{method:"POST",body:JSON.stringify({candidate,queries:query?[query]:[],source,mode:byId("mode").value,analysis_only:analysisOnly,search_limit:searchLimit})})).json();
   message(analysisOnly ? "任务已创建，只进行搜索和匹配。" : "任务已创建。草稿生成后会等待你逐条审批。"); await refreshRuns(); await selectRun(result.id);
 },byId("start"));
 byId("refresh").onclick=()=>guarded(refreshRuns,byId("refresh"));

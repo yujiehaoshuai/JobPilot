@@ -16,6 +16,14 @@ def main():
     from app.api.server import create_app
     print(f"Dashboard: http://127.0.0.1:{args.port}")
     print(f"访问令牌：JOBPILOT_API_TOKEN 或 {args.data or Path('data/agent')}/api-token.txt")
+    from app.llm.client import create_llm
+    from app.exceptions import ConfigurationError
+    try:
+        create_llm("live")
+        print("模型配置：已填写；真实调用是否兼容还需选择 live 后验收。")
+    except (ConfigurationError, ValueError):
+        print("模型配置：尚不完整，请先选离线分析；真实 LLM 需填写本机 .env。")
+    print("服务运行时保持此窗口打开，停止请按 Ctrl+C。")
     uvicorn.run(create_app(data_dir=args.data), host="127.0.0.1", port=args.port, workers=1)
 
 

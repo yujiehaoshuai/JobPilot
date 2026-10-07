@@ -46,7 +46,8 @@ class WorkflowWorker:
         self.runs.update(run_id, "RUNNING", error=None)
         try:
             with open_graph(self.data_dir, source=data["source"], mode=data["mode"],
-                            database_url=self.database_url, transport=data.get("transport", "direct")) as (graph, actions):
+                            database_url=self.database_url, transport=data.get("transport", "direct"),
+                            search_limit=data["input"].get("search_limit")) as (graph, actions):
                 config = graph_config(run_id)
                 state = graph.get_state(config)
                 if not state.values:

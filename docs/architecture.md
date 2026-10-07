@@ -24,7 +24,7 @@ flowchart TD
 
 图遍历结束后进入 COMPLETED。真实发送执行器目前停在尚未验收的平台契约处；图中执行边已用模拟动作测试，不能理解为真实平台发送已可用。
 
-当前先跑通一个真实来源：实习僧。`PublicPageReader` 只发送公开 GET，校验平台主机和路径、限制跳转与正文大小、请求至少间隔一秒。401/403/429 或登录验证会暂停，不切换指纹、不解验证码，也不读取浏览器 Cookie。`ShixisengAdapter` 从列表取编号，再解析详情；特殊字体不能可靠解释时停止或将可选字段保留未知。两种读取器共享 `PageReader` 契约，后面的服务不依赖传输方式。
+当前先跑通一个真实来源：实习僧。`PublicPageReader` 只发送公开 GET，校验平台主机和路径、限制跳转与正文大小、请求至少间隔一秒。401/403/429 或登录验证会暂停，不切换指纹、不解验证码，也不读取浏览器 Cookie。`ShixisengAdapter` 从列表取编号，再解析详情；必要字段含特殊字体时，搜索跳过该条并记录 read_warnings，可选字段保留未知；全部详情不可读则失败。验证码、403、限流不属于可跳过的错误。两种读取器共享 `PageReader` 契约，后面的服务不依赖传输方式。
 
 Dashboard 默认 `analysis_only=true`；CLI 使用 `--analysis-only`。该模式在分析后直接进入下一岗位，不创建草稿或 PendingAction。原有任务和未指定该字段的 API 请求保持旧流程。`discovery` 与 `rejected_jobs` 保存读取数、排除原因和去重数，避免把零匹配误判成零数据。这里只验证技能证据，不能据此认定学历、毕业年份、语言或招聘有效期均符合。
 
@@ -40,6 +40,8 @@ Dashboard 默认 `analysis_only=true`；CLI 使用 `--analysis-only`。该模式
 | storage + migrations | 业务关系表、审批事务和版本化迁移；检查点交给 LangGraph Saver |
 | api + web | 单机令牌鉴权、有限工作线程、状态查询、SSE 与中文界面 |
 | evaluation | 人工标注合成样本、独立指标、恢复注入与浏览器验证 |
+
+搜索数量通过 search_limit 从 API/CLI 保存进任务，恢复时仍用原值。普通工具与 MCP 都在打开 Adapter 时设置读取上限；source_warnings 经工具、协议和检查点传到界面。实习僧每个关键词最多两页，重复页、禁用的下一页按钮和可见空结果都会停止翻页；HTML 的隐藏模板不能作为零结果证据。
 
 ## 证据和副作用约束
 

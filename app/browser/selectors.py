@@ -55,8 +55,9 @@ SHIXISENG = SiteSpec(
     search_path="/interns?keyword={query}", detail_pattern=r"/intern/(inn_[A-Za-z0-9]+)",
     links='a[href*="/intern/inn_"]', title=".new_job_name", company=".com-name",
     description=".job_detail", city=".job_position", salary=".job_money",
-    # 尚未验收真实空结果节点，宁可报结构未知，也不把无内容页面误报成零岗位。
-    empty="[data-jobpilot-unverified-empty-marker]",
+    # 空搜索结果使用这张占位图；还必须检查祖先的显示状态，排除隐藏模板。
+    empty='.primary-content img[src*="/intern_default."]',
 )
 SHIXISENG_DAYS = ".job_week"
 SHIXISENG_MONTHS = ".job_time"
+SHIXISENG_NEXT = ".pagination-wrap .btn-next"

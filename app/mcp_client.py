@@ -16,10 +16,14 @@ from app.exceptions import BrowserPausedError, JobParseError
 class MCPJobAdapter(JobSourceAdapter):
     """每次只读调用启动受控子进程；浏览器登录资料仍持久保存在磁盘。"""
 
-    def __init__(self, source="mock"):
+    def __init__(self, source="mock", search_limit: int | None = None):
         if source not in {"mock", "boss", "nowcoder", "shixiseng"}:
             raise ValueError("未注册的 MCP 岗位来源")
         self.source, self.events = source, []
+        self.read_warnings: list[str] = []
+        default_limit = 5 if source == "shixiseng" else 50
+        self.search_limit = SCHEMAS["search_jobs"].model_validate(
+            {"limit": default_limit if search_limit is None else search_limit}).limit
 
     async def request(self, name, arguments):
         """只运行项目自己的服务器，不接收外部启动命令。"""
@@ -49,6 +53,7 @@ class MCPJobAdapter(JobSourceAdapter):
                 raise BrowserPausedError(reply.message or "平台要求人工验证")
             if reply.status != "ok":
                 raise JobParseError(reply.message or "MCP 工具调用失败")
+            self.read_warnings = reply.warnings
             success = True
             return reply.jobs
         finally:
@@ -56,7 +61,7 @@ class MCPJobAdapter(JobSourceAdapter):
                                 "latency_ms": (perf_counter() - start) * 1000})
 
     def search_jobs(self, queries=None):
-        return self.call("search_jobs", {"queries": queries or [], "limit": 50})
+        return self.call("search_jobs", {"queries": queries or [], "limit": self.search_limit})
 
     def get_job_detail(self, source_job_id):
         return self.call("get_job_detail", {"source_job_id": source_job_id})[0]

@@ -35,6 +35,7 @@ class StartRun(DomainModel):
     transport: Literal["direct", "mcp"] = "direct"
     queries: list[str] = Field(default_factory=list, max_length=5)
     analysis_only: bool = Field(default=False, strict=True)
+    search_limit: int | None = Field(default=None, ge=1, le=40, strict=True)
 
 
 class Decision(DomainModel):
@@ -136,6 +137,9 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
 
     @app.post("/api/runs", status_code=202, dependencies=auth)
     def start(body: StartRun):
+        if body.mode == "live":
+            from app.llm.client import create_llm
+            create_llm("live")  # 仅检查配置，不发网络请求；失败时不创建任务。
         run_id = str(uuid4())
         incoming = {"run_id": run_id, **body.model_dump(mode="json")}
         runs.create(run_id, {"source": body.source, "mode": body.mode, "transport": body.transport, "input": incoming,

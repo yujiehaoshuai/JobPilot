@@ -38,8 +38,11 @@ def main() -> int:
         if args.source == "shixiseng" and args.command == "search":
             from app.adapters.http_reader import PublicPageReader
             with PublicPageReader(site) as reader:
-                for job in adapter_type(reader, args.limit).search_jobs([args.query]):
+                adapter = adapter_type(reader, args.limit)
+                for job in adapter.search_jobs([args.query]):
                     print(job.model_dump_json())
+                for warning in adapter.read_warnings:
+                    print(warning, file=sys.stderr)
             return 0
         if args.manual:
             from app.browser.manual_login import manual_login

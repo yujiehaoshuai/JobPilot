@@ -21,6 +21,8 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 
 ## 最快启动 Dashboard
 
+Windows 可双击 `start.cmd`，不安装或改动环境。命令行可用 `start.cmd --data data/shixiseng-demo --port 8001`；停止按 Ctrl+C。
+
 ```powershell
 .\.venv\Scripts\python.exe -m app.server
 ```
@@ -41,7 +43,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 
 ## CLI 与浏览器
 
-当前只推进实习僧；BOSS 和牛客入口保留供以后排查，Dashboard 暂时禁用这两个来源。实习僧搜索默认读取第一页、最多 5 条详情，不自动翻页。候选人城市、标题和到岗天数会照常过滤，零匹配时查看排除原因，不要为了得到结果而改写自己的真实条件。
+当前只推进实习僧；BOSS 和牛客入口保留供以后排查，Dashboard 暂时禁用这两个来源。实习僧默认最多 5 条详情，可在页面或工作流 CLI 的 `--limit` 调整至 40 条，每个关键词最多读两页。数量上限包含不可读的详情尝试，跳过时显示原因；全部不可读则失败，验证或限流仍暂停。候选人城市、标题和到岗天数会照常过滤，零匹配时查看排除原因，不要为了得到结果而改写自己的真实条件。
 
 ```powershell
 # 单独确认真实数据入口，最多读取三条详情
@@ -73,7 +75,7 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 .\.venv\Scripts\python.exe -m app.browser_cli login --source nowcoder --manual
 ```
 
-工作流 CLI 用 `status --id RUN_ID` 或 `resume --id RUN_ID`，保持原任务的 source、mode、transport 和 data 参数。未设置 AGENT_DATABASE_URL 时，CLI 使用 `data/agent/actions.db`、tracker.db、checkpoints.db；早期独立 approval_cli 默认是 `data/actions.db`，查看工作流动作必须指定 `--database data/agent/actions.db`。Dashboard 默认使用新的 `data/agent/agent.db`。不要把这几种历史入口的数据库混用。
+工作流 CLI 用 `status --id RUN_ID` 或 `resume --id RUN_ID`，保持原任务的 source、mode、transport、limit 和 data 参数。未设置 AGENT_DATABASE_URL 时，CLI 使用 `data/agent/actions.db`、tracker.db、checkpoints.db；早期独立 approval_cli 默认是 `data/actions.db`，查看工作流动作必须指定 `--database data/agent/actions.db`。Dashboard 默认使用新的 `data/agent/agent.db`。不要把这几种历史入口的数据库混用。
 
 设置 AGENT_DATABASE_URL 可使用关系后端；PostgreSQL 先运行 `python -m app.db_cli upgrade`。迁移不自动搬迁旧数据库。SQLite 旧表只有与已知 0001 布局一致才可补记版本。
 
@@ -118,7 +120,7 @@ Compose 按 PostgreSQL 健康检查 → Alembic 迁移 → API 的顺序启动�
 
 - BOSS 普通 Edge 登录后可搜索并查看详情，已由用户确认；程序化访问仍在 HTTP 200 后跳到 about:blank。单次导航诊断未记录空白跳转原因，读取尚未验收，停止重复访问；详见 browser-login-diagnosis.md。
 - 牛客真实搜索要求登录或验证，本地 fixtures 验证不等于线上成功。
-- 实习僧 2026-10-07 的公开读取和匹配已通过；此前出现过 403，不能保证网站持续可用。空结果标记、翻页和需要解码的字体字段尚未开放。
+- 实习僧 2026-10-07 的公开读取和匹配已通过；此前出现过 403，不能保证网站持续可用。可见空结果、最多两页和重复页停止已验收；特殊字体不解码，详情不可读时明确跳过。
 - 真实发送执行器仍明确暂停，必须完成收件人和页面契约验收后才可开放；逐动作批准规则不会取消。
 - LLM 配置未提供；真实供应商兼容性、质量、延迟和费用尚未验证。
 - 当前为单机单工作线程、有限队列与文件锁。暂不需要 Redis，不支持多主机同时使用同一浏览器资料。

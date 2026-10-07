@@ -9,7 +9,7 @@ from mcp.types import ToolAnnotations
 from app.models.base import DomainModel
 from app.models.job import JobPosting
 from app.adapters.factory import open_adapter
-from app.tools.jobs import JobTools
+from app.tools.jobs import JobTools, SCHEMAS
 from app.exceptions import BrowserPausedError, JobPilotError
 
 
@@ -18,14 +18,18 @@ class ToolReply(DomainModel):
     status: Literal["ok", "paused", "error"]
     jobs: list[JobPosting] = Field(default_factory=list)
     message: str | None = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 def create_server(source: str):
     server = FastMCP("JobPilot read-only jobs", log_level="ERROR")
     def call(name, arguments):
         try:
-            with open_adapter(source) as adapter:
-                return ToolReply(status="ok", jobs=JobTools(adapter).call(name, arguments))
+            values = SCHEMAS[name].model_validate(arguments)
+            limit = values.limit if name == "search_jobs" else None
+            with open_adapter(source, limit=limit) as adapter:
+                jobs = JobTools(adapter).call(name, arguments)
+                return ToolReply(status="ok", jobs=jobs, warnings=list(getattr(adapter, "read_warnings", [])))
         except BrowserPausedError as exc:
             return ToolReply(status="paused", message=str(exc))
         except JobPilotError:

@@ -46,11 +46,15 @@ class JobTools:
 class ToolCallingAdapter(JobSourceAdapter):
     """给同一个图提供普通工具调用路径，方便与 MCP 路径比较。"""
 
-    def __init__(self, adapter):
+    def __init__(self, adapter, search_limit: int | None = None):
         self.tools = JobTools(adapter)
+        self.search_limit = SearchArguments(limit=50 if search_limit is None else search_limit).limit
+        self.read_warnings: list[str] = []
 
     def search_jobs(self, queries=None):
-        return self.tools.call("search_jobs", {"queries": queries or [], "limit": 50})
+        jobs = self.tools.call("search_jobs", {"queries": queries or [], "limit": self.search_limit})
+        self.read_warnings = list(getattr(self.tools.adapter, "read_warnings", []))
+        return jobs
 
     def get_job_detail(self, source_job_id):
         return self.tools.call("get_job_detail", {"source_job_id": source_job_id})[0]

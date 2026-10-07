@@ -25,3 +25,11 @@ def test_tool_boundary_rejects_writes_and_invalid_arguments():
         client.call("send_message", {"content": "不能发送"})
     with pytest.raises(ValidationError):
         client.call("search_jobs", {"queries": [], "limit": 5000})
+
+
+def test_mcp_and_direct_preserve_requested_limit():
+    """真实 MCP 握手仍执行同一数量约束，不只在页面上截断结果。"""
+    client = MCPJobAdapter("mock", search_limit=2)
+    expected = MockJobAdapter(load_settings().jobs_path).search_jobs(["Python"])[:2]
+    assert [job.id for job in client.search_jobs(["Python"])] == [job.id for job in expected]
+    assert client.events[-1]["arguments"]["limit"] == 2

@@ -28,6 +28,10 @@ def adapter():
     def respond(request):
         filename = "shixiseng_search.html" if request.url.path == "/interns" else "shixiseng_detail.html"
         text = (root / filename).read_text("utf-8")
+        if request.url.path == "/interns":
+            text = text.replace("</body>", '<a href="/intern/inn_unreadable">不可读测试</a></body>')
+        if request.url.path.endswith("inn_unreadable"):
+            text = text.replace("合成测试公司", "\ue123")
         if request.url.path.endswith("inn_demo2"):
             text = text.replace("上海", "成都")
         return httpx.Response(200, text=text, headers={"content-type": "text/html"})
@@ -56,6 +60,7 @@ def test_data_to_matching_and_restart_without_any_action(tmp_path, monkeypatch):
         assert "SQL" in result["match"]["missing_skills"]
         assert result["outcome"] == "MATCHED" and result["draft"] is None and result["action_id"] is None
         assert not actions.list()
+        assert len(state.values["source_warnings"]) == 1 and "inn_unreadable" in state.values["source_warnings"][0]
     with adapter() as source, open_graph(tmp_path, source="shixiseng", adapter=source) as (graph, actions):
         assert graph.get_state(config).values["results"] == state.values["results"]
         assert not actions.list()
@@ -82,8 +87,9 @@ def test_analysis_only_survives_model_failure_and_resume(tmp_path):
 
 
 def test_api_shixiseng_analysis_only_uses_same_pipeline(tmp_path, monkeypatch):
-    def open_source(source):
+    def open_source(source, *, limit=None):
         assert source == "shixiseng"
+        assert limit is None
         return adapter()
     monkeypatch.setattr("app.adapters.factory.open_adapter", open_source)
     with TestClient(create_app(tmp_path, token="test"), headers={"X-JobPilot-Token": "test"}) as client:

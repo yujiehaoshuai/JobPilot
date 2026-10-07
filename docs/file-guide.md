@@ -217,6 +217,7 @@ JobPilot/
 │   │   ├── test_storage.py
 │   │   └── test_worker_queue.py
 │   └── conftest.py
+├── .gitattributes
 ├── .dockerignore
 ├── .env.example
 ├── .gitignore
@@ -228,6 +229,7 @@ JobPilot/
 ├── README.md
 ├── requirements-dev.txt
 ├── requirements.lock.txt
+├── start.cmd
 └── requirements.txt
 ```
 

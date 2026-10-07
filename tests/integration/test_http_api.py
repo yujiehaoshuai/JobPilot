@@ -46,6 +46,31 @@ def test_api_rejects_invalid_candidate(tmp_path):
         assert client.post("/api/runs", json={"candidate": {"name": "缺少编号"}}).status_code == 422
 
 
+def test_search_limit_is_persisted_and_used_by_worker(tmp_path):
+    with TestClient(create_app(tmp_path, token="t"), headers={"X-JobPilot-Token":"t"}) as client:
+        profile = client.get("/api/candidate-example").json()
+        run_id = client.post("/api/runs", json={"candidate":profile,"analysis_only":True,"search_limit":2}).json()["id"]
+        result = wait_for_pause(client, run_id)
+        assert result["status"] == "COMPLETED"
+        assert result["snapshot"]["search_limit"] == 2
+        assert result["snapshot"]["discovery"]["received"] == 2
+        for limit in [0, 41, True, "5"]:
+            assert client.post("/api/runs",json={"candidate":profile,"search_limit":limit}).status_code == 422
+
+
+def test_unconfigured_live_model_does_not_create_failed_run(tmp_path, monkeypatch):
+    from app.exceptions import ConfigurationError
+    def missing_config(mode):
+        assert mode == "live"
+        raise ConfigurationError("请配置本机模型")
+    monkeypatch.setattr("app.llm.client.create_llm", missing_config)
+    with TestClient(create_app(tmp_path, token="t"), headers={"X-JobPilot-Token":"t"}) as client:
+        profile = client.get("/api/candidate-example").json()
+        response = client.post("/api/runs", json={"candidate":profile,"mode":"live"})
+        assert response.status_code == 409 and "配置" in response.json()["detail"]
+        assert client.get("/api/runs").json() == []
+
+
 def test_api_manual_recovery_preserves_approval_boundary(tmp_path):
     from app.storage.relational import database_engine, RelationalActionStore
     url = "sqlite:///" + (tmp_path / "agent.db").as_posix()

@@ -26,8 +26,10 @@ class AgentState(TypedDict, total=False):
     mode: str
     transport: str
     analysis_only: bool
+    search_limit: int | None
     discovery: dict
     rejected_jobs: list[dict]
+    source_warnings: list[str]
     jobs: list[dict]
     index: int
     results: list[dict]
@@ -89,6 +91,7 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
                 "discovery": {"received": received, "rejected": len(rejected),
                               "duplicates": len(accepted) - len(jobs), "retained": len(jobs)},
                 "rejected_jobs": rejected,
+                "source_warnings": list(getattr(adapter, "read_warnings", [])),
                 "tool_events": list(getattr(tools, "events", []))}
 
     def analyze(state):

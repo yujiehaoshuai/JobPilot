@@ -123,3 +123,85 @@ def test_http_failure_does_not_retry_or_expose_request():
         with pytest.raises(JobParseError, match="公开页面读取失败") as exc:
             reader.read(URL, SHIXISENG.links)
     assert "private" not in str(exc.value)
+
+
+@pytest.mark.parametrize("style,expected_empty", [("display:;", True), ("display:none;", False),
+                                                    ("visibility: hidden", False)])
+def test_only_visible_empty_placeholder_counts(style, expected_empty):
+    html = f'<div class="primary-content"><div style="{style}"><img src="https://static.invalid/intern_default.test.png"></div></div>'
+    with PublicPageReader(SHIXISENG) as reader:
+        adapter = ShixisengAdapter(reader)
+        if expected_empty:
+            assert adapter.parse_links(html) == []
+        else:
+            with pytest.raises(SelectorChangedError):
+                adapter.parse_links(html)
+
+
+def test_two_pages_stop_at_limit_and_fetch_each_detail_once():
+    requests = []
+    def respond(request):
+        requests.append(request)
+        if request.url.path == "/interns":
+            ids = ["inn_one", "inn_two"] if "page" not in request.url.params else ["inn_two", "inn_three", "inn_four"]
+            html = ''.join(f'<a href="/intern/{job_id}">岗位链接</a>' for job_id in ids)
+            return html_response(html + '<div class="pagination-wrap"><button class="btn-next">下一页</button></div>')
+        return html_response()
+    with PublicPageReader(SHIXISENG, transport=httpx.MockTransport(respond)) as reader:
+        jobs = ShixisengAdapter(reader, limit=3).search_jobs(["Python"])
+    assert [job.source_job_id for job in jobs] == ["inn_one", "inn_two", "inn_three"]
+    assert [request.url.params.get("page") for request in requests[:2]] == [None, "2"]
+    assert len(requests) == 5
+
+
+@pytest.mark.parametrize("repeat,disabled,empty", [(True,False,False),(False,True,False),(False,False,True)])
+def test_pagination_stops_on_repeat_last_page_or_empty(repeat, disabled, empty):
+    requests = []
+    def respond(request):
+        requests.append(request)
+        if request.url.path != "/interns":
+            return html_response()
+        if empty:
+            return html_response('<div class="primary-content"><div style="display:;"><img src="/intern_default.test.png"></div></div>')
+        marker = " disabled" if disabled else ""
+        return html_response('<a href="/intern/inn_one">链接</a><div class="pagination-wrap">'
+                             f'<button class="btn-next"{marker}>下一页</button></div>')
+    with PublicPageReader(SHIXISENG, transport=httpx.MockTransport(respond)) as reader:
+        jobs = ShixisengAdapter(reader).search_jobs(["Python"])
+    assert len(jobs) == (0 if empty else 1)
+    assert sum(request.url.path == "/interns" for request in requests) == (2 if repeat else 1)
+
+
+def test_verification_on_second_page_pauses_before_detail_fetch():
+    requests = []
+    def respond(request):
+        requests.append(request)
+        if "page" in request.url.params:
+            return html_response(status=403)
+        return html_response('<a href="/intern/inn_one">链接</a><div class="pagination-wrap"><button class="btn-next">下一页</button></div>')
+    with PublicPageReader(SHIXISENG, transport=httpx.MockTransport(respond)) as reader:
+        with pytest.raises(BrowserPausedError):
+            ShixisengAdapter(reader).search_jobs(["Python"])
+    assert len(requests) == 2 and all(request.url.path == "/interns" for request in requests)
+
+
+def test_unreadable_detail_is_reported_and_other_jobs_survive():
+    from app.tools.jobs import ToolCallingAdapter
+    def respond(request):
+        if request.url.path == "/interns":
+            return html_response(SEARCH)
+        body = DETAIL.replace("合成测试公司", "\ue123") if request.url.path.endswith("inn_demo1") else DETAIL
+        return html_response(body)
+    with PublicPageReader(SHIXISENG, transport=httpx.MockTransport(respond)) as reader:
+        tools = ToolCallingAdapter(ShixisengAdapter(reader))
+        jobs = tools.search_jobs(["Python"])
+        assert [job.source_job_id for job in jobs] == ["inn_demo2"]
+        assert len(tools.read_warnings) == 1 and "inn_demo1" in tools.read_warnings[0]
+
+
+def test_all_unreadable_details_are_not_empty_search_success():
+    def respond(request):
+        return html_response(SEARCH if request.url.path == "/interns" else DETAIL.replace("合成测试公司", "\ue123"))
+    with PublicPageReader(SHIXISENG, transport=httpx.MockTransport(respond)) as reader:
+        with pytest.raises(JobParseError, match="全部不可读"):
+            ShixisengAdapter(reader).search_jobs(["Python"])

@@ -52,6 +52,19 @@ def main():
                 page.locator("#resume-builder summary").click()
                 page.get_by_role("button", name="载入虚构示例").click()
                 expect(page.locator("#profile")).to_have_value(re.compile(r'.*"skills".*', re.S))
+                # 截获一次实习僧提交，检查页面数量参数；此测试不访问真实平台。
+                captured = []
+                def inspect_start(route):
+                    captured.append(route.request.post_data_json)
+                    route.fulfill(status=409, json={"detail": "合成检查已收到搜索参数"})
+                page.route("**/api/runs", inspect_start)
+                page.locator("#source").select_option("shixiseng")
+                page.locator("#search-limit").select_option("20")
+                page.get_by_role("button", name="开始搜索与分析").click()
+                expect(page.locator("#message")).to_contain_text("合成检查已收到搜索参数")
+                assert captured[0]["source"] == "shixiseng" and captured[0]["search_limit"] == 20
+                page.unroute("**/api/runs", inspect_start)
+                page.locator("#source").select_option("mock")
                 # 默认只匹配应直接结束，且页面不能出现待审批动作。
                 page.get_by_role("button", name="开始搜索与分析").click()
                 expect(page.locator("#run-status")).to_have_text("已完成", timeout=20000)

@@ -47,3 +47,7 @@ class BrowserPausedError(JobPilotError):
 
 class SelectorChangedError(JobParseError):
     """页面未出现约定字段；暂停并检查页面结构，不能当作零个岗位。"""
+
+
+class UnreadableJobError(JobParseError):
+    """单条岗位正文含无法可靠解释的字符；搜索可跳过，但必须说明原因。"""

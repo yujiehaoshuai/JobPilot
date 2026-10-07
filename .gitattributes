@@ -1,0 +1,2 @@
+# Windows 批处理需要 CRLF，避免中文行在 cmd 中被截断。
+*.cmd text eol=crlf
