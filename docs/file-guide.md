@@ -1,6 +1,23 @@
-# 完整源码目录与学习路线
+# 代码导读：先看实习僧搜索与匹配
 
-本树根据 Git 跟踪文件及当前未忽略源码生成，包含配置、源码、fixtures、测试和文档。`.venv`、`.runtime`、`.env`、真实数据、浏览器资料、数据库与缓存不属于可提交源码，因此不展开；它们仍保留在本机。
+当前先完成一个网站，阅读时沿下面的主线走。Mock、fixtures 和测试用于验证行为；审批、MCP、PostgreSQL、Docker 等扩展模块可以后读，不需要一开始全部理解。
+
+| 顺序 | 文件 | 要弄明白的问题 |
+| --- | --- | --- |
+| 1 | app/models/job.py、candidate.py | 一个岗位和一份候选人资料包含什么？ |
+| 2 | app/adapters/shixiseng.py、http_reader.py | 怎样从公开页面拿到可靠文本？ |
+| 3 | app/browser/selectors.py | 页面结构改变时改哪里？ |
+| 4 | app/services/normalization_service.py、filter_service.py、deduplication_service.py | 为什么有些岗位被排除或合并？ |
+| 5 | app/services/analysis_service.py、matching_service.py、app/llm/offline.py | 要求如何提取，匹配凭什么有依据？ |
+| 6 | app/workflow/graph.py | 跟随 analysis_only 的 discover → analyze → advance → finish 分支。 |
+| 7 | app/api/worker.py、server.py、app/web/app.js | 任务怎样存下来，页面怎样显示结果？ |
+
+先运行 README 的实习僧只匹配示例，再读 tests/integration/test_analysis_only.py，对照一次完整的数据流。没有 API Key 时仍能理解流程，但离线词表不能替代真正的模型。
+
+已删去三个重复的早期演示脚本，以及过时的续做文档；现在以 README、demo.md、verification.md 为入口。下面的完整目录和扩展模块默认折叠，按需展开。
+
+<details>
+<summary>完整源码目录（不含本地环境、真实数据和浏览器资料）</summary>
 
 ```text
 JobPilot/
@@ -17,7 +34,9 @@ JobPilot/
 │   │   ├── boss.py
 │   │   ├── browser_adapter.py
 │   │   ├── factory.py
-│   │   └── nowcoder.py
+│   │   ├── http_reader.py
+│   │   ├── nowcoder.py
+│   │   └── shixiseng.py
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── server.py
@@ -100,15 +119,28 @@ JobPilot/
 │   ├── phase-0-1-report.md
 │   ├── phases.md
 │   ├── pycharm-interpreter-diagnosis.md
-│   ├── resume.md
 │   └── verification.md
+├── extensions/
+│   └── boss_readonly/
+│       ├── background.js
+│       ├── collector.mjs
+│       ├── core.mjs
+│       ├── manifest.json
+│       ├── panel.css
+│       ├── panel.html
+│       ├── panel.mjs
+│       ├── probe.mjs
+│       ├── README.md
+│       └── selectors.json
 ├── fixtures/
 │   ├── browser/
 │   │   ├── boss_detail.html
 │   │   ├── boss_search.html
 │   │   ├── boss_search_delayed.html
 │   │   ├── nowcoder_detail.html
-│   │   └── nowcoder_search.html
+│   │   ├── nowcoder_search.html
+│   │   ├── shixiseng_detail.html
+│   │   └── shixiseng_search.html
 │   ├── evaluation/
 │   │   ├── gold.json
 │   │   └── thresholds.json
@@ -139,22 +171,24 @@ JobPilot/
 │   │   └── 0001_agent_state.py
 │   └── env.py
 ├── scripts/
-│   ├── api_smoke.py
-│   ├── approval_smoke.py
 │   ├── browser_smoke.py
+│   ├── build_browser_probe.py
 │   ├── dashboard_smoke.py
 │   ├── deployment_check.py
 │   ├── docker_smoke.py
+│   ├── lifecycle_smoke.py
 │   ├── mcp_smoke.py
 │   ├── navigation_smoke.py
 │   ├── platform_smoke.py
 │   ├── recovery_smoke.py
 │   ├── stream_smoke.py
-│   ├── system_smoke.py
-│   └── workflow_smoke.py
+│   └── system_smoke.py
 ├── tests/
+│   ├── browser_probe/
+│   │   └── probe.test.mjs
 │   ├── integration/
 │   │   ├── test_agent_graph.py
+│   │   ├── test_analysis_only.py
 │   │   ├── test_http_api.py
 │   │   ├── test_mcp_protocol.py
 │   │   ├── test_relational_storage.py
@@ -165,6 +199,7 @@ JobPilot/
 │   │   ├── test_approval.py
 │   │   ├── test_browser_adapter.py
 │   │   ├── test_browser_diagnostics.py
+│   │   ├── test_browser_probe_contract.py
 │   │   ├── test_browser_session.py
 │   │   ├── test_config.py
 │   │   ├── test_deduplication.py
@@ -178,6 +213,7 @@ JobPilot/
 │   │   ├── test_nowcoder_adapter.py
 │   │   ├── test_reliability.py
 │   │   ├── test_resume.py
+│   │   ├── test_shixiseng_adapter.py
 │   │   ├── test_storage.py
 │   │   └── test_worker_queue.py
 │   └── conftest.py
@@ -185,15 +221,20 @@ JobPilot/
 ├── .env.example
 ├── .gitignore
 ├── .python-version
-├── Dockerfile
-├── README.md
 ├── alembic.ini
 ├── compose.yaml
+├── Dockerfile
 ├── pyproject.toml
+├── README.md
 ├── requirements-dev.txt
 ├── requirements.lock.txt
 └── requirements.txt
 ```
+
+</details>
+
+<details>
+<summary>扩展模块职责与完整学习路线</summary>
 
 ## 主要文件职责
 
@@ -233,6 +274,9 @@ JobPilot/
 8. 读 graph.py 与 test_agent_graph.py，逐步画出暂停、恢复和按岗位循环的位置。
 9. 读 relational.py、Alembic、worker.py、FastAPI，再用 Dashboard 观察持久状态。
 10. 最后读浏览器、MCP、Evaluation 和部署文件，思考这些机制分别解决什么真实问题。
+
+
+</details>
 
 ## 最值得面试讲解的 10 个技术点
 

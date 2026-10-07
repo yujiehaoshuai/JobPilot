@@ -6,7 +6,7 @@ from langgraph.types import interrupt
 from app.exceptions import BrowserPausedError, ConfirmationRequiredError
 from app.models.candidate import CandidateProfile
 from app.models.job import JobPosting
-from app.models.analysis import JobAnalysis, MatchResult, GreetingDraft
+from app.models.analysis import MatchResult, GreetingDraft
 from app.models.action import ActionPayload
 from app.services.filter_service import RuleFilter
 from app.services.deduplication_service import deduplicate_jobs
