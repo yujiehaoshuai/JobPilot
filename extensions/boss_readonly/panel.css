@@ -1,0 +1,15 @@
+:root { font-family: system-ui, "Microsoft YaHei", sans-serif; color: #172b3a; background: #f3f6f9; }
+body { margin: 0; }
+main { max-width: 960px; margin: 40px auto; padding: 0 24px 40px; }
+.label { color: #276b72; letter-spacing: 2px; font-size: 13px; }
+h1 { font-size: 28px; } h2 { font-size: 19px; margin-top: 0; }
+p { line-height: 1.7; }
+section { margin-top: 20px; background: white; border: 1px solid #dce5ec; border-radius: 10px; padding: 22px; }
+button, input, select { font: inherit; padding: 10px 12px; margin: 6px 4px 6px 0; border: 1px solid #bdcdd7; border-radius: 6px; }
+button { background: #edf6f6; color: #15565b; cursor: pointer; }
+button:hover:not(:disabled) { background: #d9eeec; }
+button:disabled { opacity: .5; cursor: default; }
+label { display: block; margin-top: 8px; } select { max-width: 100%; min-width: 280px; }
+.hint { font-size: 13px; color: #526675; margin-bottom: 0; }
+#status { font-weight: 600; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 520px; overflow: auto; padding: 16px; background: #f5f8fa; font-size: 13px; }

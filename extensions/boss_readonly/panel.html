@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JobPilot 只读采集实验</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <main>
+    <p class="label">JOBPILOT · 浏览器扩展实验</p>
+    <h1>验证普通浏览器能否读取 BOSS</h1>
+    <p>使用你在本浏览器中的正常登录状态。每次观察约 12 秒，页面变空白后再观察 2 秒。</p>
+    <p>本版本只读取岗位，不沟通、不投递。遇到登录或验证，请在网页中手动完成。</p>
+    <section>
+      <h2>第一步：对照导航</h2>
+      <button id="control">打开 example.com 并观察</button>
+      <button id="home">打开 BOSS 首页并观察</button>
+      <p class="hint">每次新开一个标签页，只导航一次；观察期间保持本面板打开。</p>
+    </section>
+    <section>
+      <h2>第二步：搜索与详情</h2>
+      <label for="query">岗位关键词</label>
+      <input id="query" value="Python" maxlength="80">
+      <button id="search">搜索并读取岗位</button>
+      <button id="detail" disabled>打开首个岗位并读取</button>
+      <p class="hint">详情字段不全会明确提示，不补造公司、薪资或 JD。</p>
+    </section>
+    <section>
+      <h2>读取已经打开的页面</h2>
+      <label for="target">BOSS 或 example.com 标签页</label>
+      <select id="target" aria-label="选择要读取的标签页"></select>
+      <button id="refresh">刷新列表</button>
+      <button id="read">读取并观察，不导航</button>
+    </section>
+    <section>
+      <h2>本次结果</h2>
+      <p id="status" role="status" aria-live="polite">正在准备…</p>
+      <button id="export" disabled>导出本次 JSON</button>
+      <p class="hint">报告保存在本地。不会上传岗位、简历、Cookie 或 API Key；刷新面板会清空本次结果。</p>
+      <pre id="result">尚未运行</pre>
+    </section>
+  </main>
+  <script type="module" src="panel.mjs"></script>
+</body>
+</html>

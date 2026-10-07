@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "JobPilot 只读采集实验",
+  "version": "0.1.0",
+  "description": "用普通标签页导航和隔离环境读取岗位，导出本地 JSON；没有沟通或投递功能。",
+  "permissions": ["tabs", "scripting"],
+  "host_permissions": ["https://www.zhipin.com/*", "https://zhipin.com/*", "https://example.com/*"],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_title": "打开 JobPilot 只读实验面板"}
+}

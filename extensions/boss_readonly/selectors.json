@@ -1,0 +1,34 @@
+{
+  "site": {
+    "source": "boss",
+    "home": "https://www.zhipin.com",
+    "hosts": [
+      "www.zhipin.com",
+      "zhipin.com"
+    ],
+    "search_path": "/web/geek/job?query={query}",
+    "detail_pattern": "/job_detail/([A-Za-z0-9_-]+)\\.html",
+    "links": "a[href*=\"/job_detail/\"][href*=\".html\"]",
+    "title": ".job-banner .name h1",
+    "company": ".sider-company .company-info a, .company-info a",
+    "description": ".job-sec-text",
+    "city": ".job-banner .text-city",
+    "salary": ".job-banner .salary",
+    "empty": ".job-empty, .search-empty"
+  },
+  "challenge_selectors": [
+    "iframe[src*=\"captcha\"]",
+    ".geetest_panel",
+    "#captcha",
+    ".verify-wrap",
+    ".login-dialog",
+    ".sign-form"
+  ],
+  "challenge_titles": [
+    "安全验证",
+    "人机验证",
+    "登录",
+    "访问异常",
+    "Security Verification"
+  ]
+}

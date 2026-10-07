@@ -1,4 +1,4 @@
-# BOSS 登录窗口诊断（更新于 2026-10-06）
+# BOSS 登录窗口诊断（更新于 2026-10-07）
 
 ## 已确认的现象
 
@@ -91,7 +91,7 @@ Target 通知可能先于 Playwright 的新页面通知。代码用 `Target.getT
 
 第二版诊断更新后，189 项测试通过，1 项因未提供专用 PostgreSQL 测试库跳过。两个本地合成场景通过真实 Edge 验证：原页面脚本跳空白后观察两秒；主页面正常、另建空白窗口并关闭，同时移除子框架。后者能记录两个不同编号、弹窗关闭、frame detach 和 Target 创建/销毁。测试使用临时资料目录，所有网页响应由本地提供，不访问真实招聘网站。
 
-新增单元测试覆盖 URL 参数校验、两个命令的启动设置一致、页面 crash/close、context/browser 关闭、CDP 不可用时保留事件、清理后不再记录事件。已有的搜索、详情、延迟加载、验证码暂停等离线验证继续保留。真实 BOSS 与真实 example.com 的新一轮对照尚未执行，需通过上面的命令取得报告后继续判断。
+新增单元测试覆盖 URL 参数校验、两个命令的启动设置一致、页面 crash/close、context/browser 关闭、CDP 不可用时保留事件、清理后不再记录事件。已有的搜索、详情、延迟加载、验证码暂停等离线验证继续保留。第二版刚完成时，真实网站对照尚未执行；后来读取的用户报告见下方 2026-10-07 记录。
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -101,3 +101,13 @@ Target 通知可能先于 Playwright 的新页面通知。代码用 `Target.getT
 ```
 
 BOSS 普通浏览器登录和人工查看详情已由用户确认；程序化真实搜索、详情 DOM 和发送界面仍未验收。没有发送消息或投递，没有修改 Python 环境、数据库、系统安全设置或网站验证机制。
+
+## 2026-10-07 普通浏览器扩展实验
+
+已读取用户在 2026-10-06 晚间生成的第二版报告：`boss-navigation-2efbf0bf728f431e80d78eb0ef8fc660.json` 和 `boss-navigation-e71f113f43c74d18a160fadb3b3930cb.json` 中 example.com 均为 `page_observed`；`boss-navigation-72d7881f758e421baba76d35407a9306.json` 中同一 `page-1` 主框架在 3640ms 变为 `about:blank`，未记录到新页面、关闭或 crash。这支持继续调查控制路径差异，不等于确定了某一段网站脚本就是根因。
+
+新增独立实验目录 `extensions/boss_readonly`，通过普通扩展 API 导航，在 `ISOLATED` 环境读取公开岗位 DOM。它不连接 CDP、不改变现有 Adapter、不调用 LLM，也不包含发送消息、投递或修改远端资料的逻辑。选择器由现有 `app/browser/selectors.py` 导出。
+
+加载和实验步骤见 [扩展说明](../extensions/boss_readonly/README.md)。本阶段验证 example.com 对照、BOSS 首页、单次搜索和单条详情；自动翻页及本地后端接入尚未实现。
+
+离线事件与读取测试通过，不等于真实扩展已在 BOSS 验收。本轮电脑操作工具因无法可靠识别 Windows 上当前浏览器 URL，停止了界面控制；没有改走其他控制通道，也没有安装扩展或操作 BOSS。扩展需要用户在普通浏览器中手动加载，再生成真实页面报告。
