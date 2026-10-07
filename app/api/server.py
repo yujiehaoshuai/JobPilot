@@ -11,7 +11,8 @@ from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import Field
+from fastapi.exceptions import RequestValidationError
+from pydantic import Field, SecretStr
 from sqlalchemy import text
 from app.config import PROJECT_ROOT
 from app.models.base import DomainModel
@@ -24,6 +25,13 @@ from app.reliability import TokenBucket
 from app.services.action_service import resolve_after_review
 from app.models.resume import ResumeProfileRequest
 from app.services.resume_service import extract_resume, build_candidate, MAX_UPLOAD_BYTES
+from app.services import model_settings
+
+
+class ModelSettings(DomainModel):
+    """密钥在调试表示中自动隐藏；不允许客户端修改服务地址。"""
+
+    api_key: SecretStr
 
 
 class StartRun(DomainModel):
@@ -94,7 +102,7 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
 
     async def authenticated(request: Request):
         if not secrets.compare_digest(request.headers.get("X-JobPilot-Token", ""), api_token):
-            raise HTTPException(401, "请提供本机访问令牌")
+            raise HTTPException(401, "尚未连接本机程序，请双击 start.cmd 重新打开页面")
         origin = request.headers.get("origin")
         if origin and origin != str(request.base_url).rstrip("/"):
             raise HTTPException(403, "不接受跨来源操作")
@@ -102,6 +110,13 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
             raise HTTPException(429, "请求过于频繁，请稍后重试", headers={"Retry-After": "1"})
 
     auth = [Depends(authenticated)]
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_input(request, exc):
+        # 默认错误包含原始输入，可能泄漏服务密钥或简历；这里只返回字段位置。
+        fields = [".".join(str(part) for part in error["loc"][1:]) for error in exc.errors()]
+        return JSONResponse(status_code=422, content={"detail": "填写内容不完整或格式不正确，请检查后重试。",
+                                                     "fields": fields})
 
     @app.exception_handler(JobPilotError)
     async def business_error(request, exc):
@@ -134,6 +149,18 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.get("/api/candidate-example", dependencies=auth)
     def example():
         return json.loads((PROJECT_ROOT / "fixtures/candidate.example.json").read_text("utf-8-sig"))
+
+    @app.get("/api/model-settings", dependencies=auth)
+    def model_configuration():
+        return model_settings.model_status()
+
+    @app.post("/api/model-settings", dependencies=auth)
+    def save_model_configuration(body: ModelSettings):
+        return model_settings.save_deepseek(body.api_key)
+
+    @app.post("/api/model-settings/test", dependencies=auth)
+    def test_model_configuration():
+        return model_settings.test_connection()
 
     @app.post("/api/runs", status_code=202, dependencies=auth)
     def start(body: StartRun):

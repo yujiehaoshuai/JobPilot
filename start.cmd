@@ -9,7 +9,7 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b 1
 )
 set "PYTHONIOENCODING=utf-8"
-".venv\Scripts\python.exe" -m app.server %*
+".venv\Scripts\python.exe" -m app.server --open-browser %*
 if errorlevel 1 (
     echo 启动失败，请查看上方提示。若端口被占用，可运行 start.cmd --port 8001。
     pause

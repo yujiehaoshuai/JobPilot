@@ -17,33 +17,38 @@
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-真实模型需要 LLM_BASE_URL、LLM_MODEL、LLM_API_KEY，服务必须支持严格 JSON Schema。API Key 仅写本机文件。离线演示不需要密钥。
+真实模型现在可以在页面的“连接 DeepSeek”里配置。默认使用 `deepseek-flash`、`https://api.deepseek.com` 和 Responses 接口；保存时会同时填写 `.env` 的 LLM_BASE_URL、LLM_MODEL、LLM_API_STYLE、LLM_API_KEY，保留其他配置。其他服务仍可手动配置 `chat_completions`，但必须支持严格 JSON Schema。
 
-## 最快启动 Dashboard
+## 最快打开求职助手
 
-Windows 可双击 `start.cmd`，不安装或改动环境。命令行可用 `start.cmd --data data/shixiseng-demo --port 8001`；停止按 Ctrl+C。
+Windows 双击 `start.cmd`，会自动打开浏览器并连接本机程序，不安装或改动环境。命令行也可以：
 
 ```powershell
-.\.venv\Scripts\python.exe -m app.server
+.\.venv\Scripts\python.exe -m app.server --open-browser
 ```
 
-打开 `http://127.0.0.1:8000`。页面令牌使用 `.env` 中的 JOBPILOT_API_TOKEN；未配置时，由服务生成到 `data/agent/api-token.txt`，仅在自己的本机页面输入。接口说明位于 `/docs`，完整 Schema 位于 `/openapi.json`。
+1. 首次体验：点击“先用虚构资料体验一下”，然后点击“帮我找岗位”。示例不调用真实 AI。
+2. 正式使用：在“连接 DeepSeek”中保存服务密钥、测试连接；不要把密钥发到聊天或提交 Git。
+3. 在第 1 步填写姓名或昵称、简历或真实经历。每项技能选择真实程度，复制一句正文中的相关经历，核对后点击“确认使用这份资料”。
+4. 在第 2 步选择“实习僧 · 真实岗位”和“让 AI 分析”，输入关键词，先读取 5 条。
+5. 在右侧查看岗位和匹配结果，展开“为什么这样匹配？查看双方原文”。结果自动保存，下次打开后点击“以前的搜索”可重新查看。
 
-1. 填入访问令牌，点击“载入虚构示例”；真实资料应从自己的 Candidate Profile JSON 导入。
-2. 先选择 Mock 与 offline，保留默认“只搜索和匹配”，开始搜索与分析；完成后可换成“实习僧公开岗位”读取真实岗位。
-3. 查看通过规则过滤的岗位、匹配项、学习中技能、缺失证据和风险。
-4. 展开 JD 引用和候选人原文。当前主流程到匹配结束；若要演示下面的模拟审批，另建 Mock 任务并取消“只搜索和匹配”。
-5. 拒绝一条草稿，观察流程继续到下一岗位；批准一条模拟草稿，观察模拟回执。两者都不向招聘方发送消息。
-6. 停止服务再启动，刷新任务列表，选择原任务并恢复；Resume 本身不能代替 Approve。
-7. 对 EXECUTING/UNCERTAIN 结果，先在平台人工核对再填写依据。确认未发送会结束该动作；想重试须创建新任务并重新审批。
+正文可直接粘贴，也可读取 TXT、Markdown、DOCX（最多 1 MB）。DOCX 只读取正文段落和表格；PDF、扫描件请先复制并核对文字。程序不推测学历、年限或熟练程度；否定句、岗位要求和别人的经历不能当作自己的经历。原始文件不保存，点击搜索后才保存确认的资料。
 
-也可展开“从简历原文整理资料”，导入 UTF-8 TXT、Markdown 或 DOCX（最多 1 MB），或直接粘贴正文。填写姓名和目标条件，添加技能名称、真实程度和逐字原文证据，核对后勾选确认，点击“生成新资料 JSON”。程序检查引用确实存在且包含完整技能名称；不从简历自动推断熟练程度、学历或年限。生成后核对上方 JSON，再开始任务。不要把否定句、岗位要求或别人的经历当作自己的技能。
+<details>
+<summary>连接故障、旧版资料与模拟审批</summary>
 
-上传原始文件仅在内存处理；生成资料不会自动建任务，开始任务后才持久化确认的 CandidateProfile。DOCX 只读取正文段落和表格，不读取图片、页眉页脚和批注；PDF、扫描件和旧版 .doc 暂需手动复制或转换文字。未知信息保留未知，示例经历不可当作真实经历使用。
+默认监听 `http://127.0.0.1:8000`。端口占用时可用 `start.cmd --port 8001`。不使用自动打开参数时，在页面“高级设置”手动填写本机连接码，默认在 `data/agent/api-token.txt`；设置过 JOBPILOT_API_TOKEN 时以配置值为准。接口说明在 `/docs`，完整 Schema 在 `/openapi.json`。
+
+“高级设置”保留 Candidate Profile JSON 导入。若需演示原来的批准/拒绝流程，先载入虚构示例，取消“只搜索和匹配”，再开始任务；批准只触发模拟动作。真实发送尚未开放。
+
+状态不明时先人工核查，再填写依据；确认未发送会结束该动作，想重试必须重新创建并审批。停止服务再启动后可从旧记录继续，恢复任务本身不能代替批准。
+
+</details>
 
 ## CLI 与浏览器
 
-当前只推进实习僧；BOSS 和牛客入口保留供以后排查，Dashboard 暂时禁用这两个来源。实习僧默认最多 5 条详情，可在页面或工作流 CLI 的 `--limit` 调整至 40 条，每个关键词最多读两页。数量上限包含不可读的详情尝试，跳过时显示原因；全部不可读则失败，验证或限流仍暂停。候选人城市、标题和到岗天数会照常过滤，零匹配时查看排除原因，不要为了得到结果而改写自己的真实条件。
+当前只推进实习僧；BOSS 和牛客入口保留供以后排查，普通页面暂不显示这两个来源。实习僧默认最多 5 条详情，可在页面或工作流 CLI 的 `--limit` 调整至 40 条，每个关键词最多读两页。数量上限包含不可读的详情尝试，跳过时显示原因；全部不可读则失败，验证或限流仍暂停。候选人城市、标题和到岗天数会照常过滤，零匹配时查看排除原因，不要为了得到结果而改写自己的真实条件。
 
 ```powershell
 # 单独确认真实数据入口，最多读取三条详情
@@ -51,10 +56,10 @@ Windows 可双击 `start.cmd`，不安装或改动环境。命令行可用 `star
 # 用自己的资料只做匹配；offline 是有限词表，配置模型后再换 live
 .\.venv\Scripts\python.exe -m app.workflow_cli start --source shixiseng --query Python --candidate data/candidate.json --analysis-only --mode offline --data data/shixiseng-cli
 # 查看本次已保存的真实岗位演示；候选人是虚构资料
-.\.venv\Scripts\python.exe -m app.server --data data/shixiseng-demo --port 8000
+.\.venv\Scripts\python.exe -m app.server --open-browser --data data/shixiseng-demo --port 8000
 ```
 
-最后一个命令使用独立演示库，令牌位于 `data/shixiseng-demo/api-token.txt`（若 .env 配了 JOBPILOT_API_TOKEN 则使用配置值）。刷新并选择已有任务，即可查看本次结果；无需重新抓取。
+最后一个命令会自动打开独立演示库。点击“刷新记录”，选择已有搜索即可查看结果，无需重新抓取。
 
 2026-10-07 本机真实验收：公开搜索取回 5 条完整岗位，虚构 Python 示例按规则排除 1 条、保留并匹配 4 条；API 任务 COMPLETED、0 个动作，重建服务实例后结果一致。没有真实 LLM 配置，因此不宣称语义分析或用户本人匹配已验收。页面刷新时间不是发布时间，部分 JD 可能陈旧；招聘截止日期及名额应在原页核对。
 
@@ -92,7 +97,7 @@ Windows 可双击 `start.cmd`，不安装或改动环境。命令行可用 `star
 .\.venv\Scripts\python.exe -m app.evaluation.runner --browser
 ```
 
-评估输出在 `data/evaluations/latest.json`。13 项指标均保留统计范围与分母。当前合成样本中，JD 技能提取和缺失技能准确率为 4/6，技能匹配 6/6，候选人证据幻觉率 0/10。工具选择指标衡量确定性路由，浏览器指标衡量本地合成页面，不代表真实模型或线上平台成功率。实时模型评估用 `--mode live`，会调用已配置服务并产生费用；未知用量和成本保留 null。
+评估输出在 `data/evaluations/latest.json`。13 项指标均保留统计范围与分母。离线合成样本中，JD 技能提取和缺失技能准确率为 4/6，技能匹配 6/6，候选人证据幻觉率 0/10。2026-10-07 的真实 DeepSeek 评估为提取 5/6、匹配 6/6、缺失项 5/6、证据伪造 0/10；输入 4801、输出 732 个模型计量单位，评估总耗时约 9.7 秒，未配置单价故不估算费用。工具选择指标衡量确定性路由，浏览器指标衡量本地合成页面，不代表真实模型或线上平台成功率。实时模型评估用 `--mode live`，会调用已配置服务并产生费用；未知用量和成本保留 null。
 
 真实 PostgreSQL 集成测试需要专用 JOBPILOT_TEST_POSTGRES_URL；不能用生产库代替测试库。
 
@@ -122,6 +127,12 @@ Compose 按 PostgreSQL 健康检查 → Alembic 迁移 → API 的顺序启动�
 - 牛客真实搜索要求登录或验证，本地 fixtures 验证不等于线上成功。
 - 实习僧 2026-10-07 的公开读取和匹配已通过；此前出现过 403，不能保证网站持续可用。可见空结果、最多两页和重复页停止已验收；特殊字体不解码，详情不可读时明确跳过。
 - 真实发送执行器仍明确暂停，必须完成收件人和页面契约验收后才可开放；逐动作批准规则不会取消。
-- LLM 配置未提供；真实供应商兼容性、质量、延迟和费用尚未验证。
+- DeepSeek 的真实连接、少量真实岗位分析、合成质量评估和页面展示已通过。资料仍是虚构示例，用户本人结果需要本人确认资料后运行。金额以 DeepSeek 账户为准；现有样本较少，不能保证所有岗位都提取准确。
 - 当前为单机单工作线程、有限队列与文件锁。暂不需要 Redis，不支持多主机同时使用同一浏览器资料。
 - 日志只记录白名单字段；真实候选人资料、检查点、令牌、Cookie、浏览器 Profile 均保存在 Git 忽略范围内。
+
+## 查看最新的真实 AI 验收结果
+
+正常启动后，点击“刷新记录”，选择“DeepSeek 验收示例（虚构资料）”。这条记录已完成真实岗位读取、DeepSeek 分析、Python 证据匹配和保存；查看记录只读取本机数据，不会再次付费调用模型。前一次包含两条岗位的联调记录也保留，便于对照修正前后的技能提取。
+
+本机报告在 `data/deepseek-validation/`：`report.json` 为最初两条岗位，`extraction-recheck.json` 为技能名称修正复查，`corrected-workflow.json` 为修正后完整任务，`evaluation-live.json` 为真实模型的合成样本评估，`dashboard-live.png` 为只读页面验收截图。这些文件不提交 Git。

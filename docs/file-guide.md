@@ -8,7 +8,7 @@
 | 2 | app/adapters/shixiseng.py、http_reader.py | 怎样从公开页面拿到可靠文本？ |
 | 3 | app/browser/selectors.py | 页面结构改变时改哪里？ |
 | 4 | app/services/normalization_service.py、filter_service.py、deduplication_service.py | 为什么有些岗位被排除或合并？ |
-| 5 | app/services/analysis_service.py、matching_service.py、app/llm/offline.py | 要求如何提取，匹配凭什么有依据？ |
+| 5 | app/services/analysis_service.py、matching_service.py、app/llm/client.py | 要求如何提取，匹配凭什么有依据？ |
 | 6 | app/workflow/graph.py | 跟随 analysis_only 的 discover → analyze → advance → finish 分支。 |
 | 7 | app/api/worker.py、server.py、app/web/app.js | 任务怎样存下来，页面怎样显示结果？ |
 
@@ -74,6 +74,7 @@ JobPilot/
 │   │   ├── filter_service.py
 │   │   ├── greeting_service.py
 │   │   ├── matching_service.py
+│   │   ├── model_settings.py
 │   │   ├── normalization_service.py
 │   │   └── resume_service.py
 │   ├── storage/
@@ -89,6 +90,7 @@ JobPilot/
 │   │   ├── app.js
 │   │   ├── index.html
 │   │   ├── resume.js
+│   │   ├── settings.js
 │   │   └── style.css
 │   ├── workflow/
 │   │   ├── __init__.py
@@ -191,6 +193,7 @@ JobPilot/
 │   │   ├── test_analysis_only.py
 │   │   ├── test_http_api.py
 │   │   ├── test_mcp_protocol.py
+│   │   ├── test_model_settings.py
 │   │   ├── test_relational_storage.py
 │   │   ├── test_resume_api.py
 │   │   ├── test_system_recovery.py
@@ -203,10 +206,12 @@ JobPilot/
 │   │   ├── test_browser_session.py
 │   │   ├── test_config.py
 │   │   ├── test_deduplication.py
+│   │   ├── test_deepseek.py
 │   │   ├── test_evaluation_gates.py
 │   │   ├── test_evaluation_metrics.py
 │   │   ├── test_filter.py
 │   │   ├── test_intelligence.py
+│   │   ├── test_launcher.py
 │   │   ├── test_manual_login.py
 │   │   ├── test_mock_adapter.py
 │   │   ├── test_models.py
@@ -217,9 +222,9 @@ JobPilot/
 │   │   ├── test_storage.py
 │   │   └── test_worker_queue.py
 │   └── conftest.py
-├── .gitattributes
 ├── .dockerignore
 ├── .env.example
+├── .gitattributes
 ├── .gitignore
 ├── .python-version
 ├── alembic.ini
@@ -229,8 +234,8 @@ JobPilot/
 ├── README.md
 ├── requirements-dev.txt
 ├── requirements.lock.txt
-├── start.cmd
-└── requirements.txt
+├── requirements.txt
+└── start.cmd
 ```
 
 </details>
@@ -293,4 +298,6 @@ JobPilot/
 9. **评估分母与范围**：金标样本、工具路由、合成页面和真实网站不能混成一个成功率；无数据时保留未知。
 10. **按规模选择可靠性机制**：单机文件锁、有限线程、令牌桶和日志轮转先满足当前需求；需要跨主机队列时才考虑 Redis。
 
-讲解时要主动说明真实模型、平台发送和 Docker 尚未验收，不能把设计能力或离线测试包装成生产结果。
+讲解时要说明 DeepSeek 已完成少量真实岗位和合成样本验收，但样本很小；平台发送和 Docker 尚未验收，不能把设计能力或小样本测试包装成生产结果。
+
+本机 DeepSeek 设置入口：app/services/model_settings.py 负责安全保存与测试，app/web/settings.js 负责中文页面交互。个人资料表单仍复用 resume_service.py，不增加新的匹配架构。

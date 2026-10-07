@@ -1,54 +1,59 @@
 <!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JobPilot · 求职工作台</title><link rel="stylesheet" href="/static/style.css">
-<script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script></head>
+<title>JobPilot · 找适合你的工作</title><link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script><script src="/static/settings.js" defer></script></head>
 <body>
-<header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>让每一次沟通都有依据</small></div></div>
-<span class="badge">本地工作台 · 岗位与证据</span></header>
+<header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>帮你看岗位，也帮你看差距</small></div></div><span id="connection-status" class="badge">正在连接本机程序</span></header>
 <main>
-<section class="intro"><p class="eyebrow">求职工作流</p><h1>找到机会，先看证据。</h1><p>先看真实岗位、匹配项和缺失项，再决定下一步。</p></section>
-<div id="message" role="status" aria-live="polite">输入本机令牌，载入资料后即可开始离线演示。</div>
-<div class="layout">
-<aside>
-<section class="panel"><h2>1. 准备候选人资料</h2>
-<label for="token">本机访问令牌</label><input id="token" type="password" autocomplete="off" placeholder="输入本机 API 令牌">
-<p class="hint">默认令牌在 data/agent/api-token.txt；使用 --data 时在所选目录的 api-token.txt。令牌只留在当前页面。</p>
-<div class="row"><button id="example" class="secondary">载入虚构示例</button><label class="file">导入 JSON<input id="profile-file" type="file" accept=".json,application/json"></label></div>
-<label for="profile">Candidate Profile</label><textarea id="profile" rows="9" spellcheck="false" placeholder="粘贴真实资料 JSON，或先载入虚构示例"></textarea>
-<details><summary>资料填写说明</summary><p class="hint">skills 每项填写 skill、level 和 evidence。level 可选 learning、project_experience、professional；evidence 请填写自己的真实经历。</p></details>
-<details id="resume-builder"><summary>从简历原文整理资料</summary>
-<p class="hint">支持 UTF-8 文本、Markdown、Word DOCX（最多 1 MB）。PDF 或扫描件请先复制、核对正文；图片和页眉页脚不读取。</p>
-<label class="file">导入简历正文<input id="resume-file" type="file" accept=".txt,.md,.docx"></label>
-<label for="resume-text">简历正文（可粘贴；选中文字后可作为证据）</label><textarea id="resume-text" rows="7" maxlength="100000"></textarea>
-<label for="resume-name">姓名</label><input id="resume-name" maxlength="100">
-<div class="row"><div><label for="resume-roles">目标岗位（逗号分隔）</label><input id="resume-roles"></div><div><label for="resume-cities">目标城市（逗号分隔）</label><input id="resume-cities"></div></div>
-<div id="resume-skills"></div><button id="resume-add" class="secondary" type="button">添加技能证据</button>
-<label class="confirmation"><input id="resume-confirm" type="checkbox">我已核对引用含义，确认技能程度，没有把未做过的事情写成经历。</label>
-<button id="resume-build" type="button">生成新资料 JSON</button>
-<p class="hint">生成后会替换上方编辑框，请检查并补充求职条件，再开始任务。仅引用文字相同不能证明经历，需本人核对。</p>
+<section class="intro"><p class="eyebrow">你的求职小助手</p><h1>把简历里会的，和岗位要的对上。</h1><p>填写个人情况，搜索岗位，看看哪些适合你、还需要补什么。</p>
+<button id="example" class="secondary">先用虚构资料体验一下</button><span class="hint">不用密钥，不花钱，也不会发送消息。</span></section>
+<div id="message" role="status" aria-live="polite">首次使用：先连接 DeepSeek，再填写个人情况。也可以先体验示例。</div>
+<div class="layout"><aside>
+<section class="panel"><details id="ai-settings" open><summary><strong>连接 DeepSeek</strong><span id="ai-status" class="hint">尚未设置</span></summary>
+<p>AI 负责读懂岗位要求。程序再按你确认的个人经历逐条比较。</p>
+<p class="hint">在 DeepSeek 开放平台创建一把“API Key”（服务密钥），复制到下方即可。它相当于让本程序使用你的 AI 账户的密码。</p>
+<a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">前往 DeepSeek 获取服务密钥 ↗</a>
+<label for="model-key">粘贴 DeepSeek 服务密钥</label><input id="model-key" type="password" autocomplete="off" spellcheck="false" placeholder="只在这里填写，不用发到聊天里" maxlength="512">
+<div class="row"><button id="model-save">保存密钥</button><button id="model-test" class="secondary">测试连接</button></div>
+<p id="model-feedback" class="hint" role="status">只保存在本机。保存不会调用 AI；测试连接和分析岗位会按 DeepSeek 账户规则计费。</p>
+<p class="hint">当前搜索匹配只把岗位说明发给 AI；简历正文在本机整理，不会自动上传。</p>
+</details></section>
+<section class="panel"><h2><span class="step-number">1</span>告诉我你会什么</h2>
+<div id="profile-summary" class="notice">还没有个人资料。可以粘贴简历，也可以写几句真实经历。</div>
+<details id="resume-builder" open><summary>填写或修改个人资料</summary>
+<label for="resume-name">怎么称呼你</label><input id="resume-name" maxlength="100" placeholder="姓名或昵称都可以">
+<label for="resume-text">简历或经历原文</label><textarea id="resume-text" rows="5" maxlength="100000" placeholder="例如：在课程项目中，我使用 Python 编写了一个记账工具。只写自己做过的事情。"></textarea>
+<label class="file">从文件读取正文<input id="resume-file" type="file" accept=".txt,.md,.docx"></label><p class="hint">支持 Word（.docx）和文本文件。PDF 请复制文字后粘贴到上方。</p>
+<p class="hint">挑出你想用来找工作的技能，每项附上一句自己的原文。这样匹配结果才有依据。</p>
+<div id="resume-skills"></div><button id="resume-add" class="secondary" type="button">再加一项技能</button>
+<div class="row"><div><label for="resume-roles">只看这些岗位名称（选填）</label><input id="resume-roles" placeholder="例如 Python；多个用逗号隔开"></div><div><label for="resume-cities">想工作的城市（选填）</label><input id="resume-cities" placeholder="不填表示不限城市"></div></div>
+<label class="confirmation"><input id="resume-confirm" type="checkbox">以上都是我的真实经历，技能程度也已核对。</label>
+<button id="resume-build" type="button">确认使用这份资料</button><p class="hint">开始搜索后，确认的资料会随任务保存在本机。原始简历文件不保存。</p>
+</details></section>
+<section class="panel"><h2><span class="step-number">2</span>想找什么工作</h2>
+<label for="query">岗位关键词</label><input id="query" placeholder="例如 Python 实习生">
+<div class="row"><div><label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧 · 真实岗位</option><option value="mock">示例岗位 · 练习用</option></select></div>
+<div><label for="mode">怎么分析</label><select id="mode"><option value="live">让 AI 分析</option><option value="offline">基础演示（不调用 AI）</option></select></div></div>
+<p id="mode-hint" class="hint">AI 分析需要先在上方连接 DeepSeek。</p>
+<label for="search-limit">这次最多看多少条</label><select id="search-limit"><option value="5">5 条 · 建议先试一下</option><option value="10">10 条</option><option value="20">20 条</option><option value="40">40 条</option></select>
+<p class="hint">搜索真实岗位需要一些时间。没有合适结果时，可以换个关键词。</p>
+<button id="start">帮我找岗位</button><p class="hint">目前只读取、分析和保存结果，不会替你发消息或投递。</p>
+</section>
+<details class="panel" id="advanced"><summary>高级设置（一般不用打开）</summary>
+<p class="hint">这里保留开发调试和旧版资料导入入口，不影响上面的三步使用。</p>
+<label for="token">本机连接码</label><input id="token" type="password" autocomplete="off" placeholder="双击 start.cmd 会自动连接"><button id="connect" class="secondary">连接本机</button>
+<p class="hint">连接码在所选数据目录的 api-token.txt 中。它与 DeepSeek 密钥不是同一个东西。</p>
+<label class="file">导入旧版资料文件<input id="profile-file" type="file" accept=".json,application/json"></label>
+<label for="profile">资料原始格式（JSON）</label><textarea id="profile" rows="7" spellcheck="false"></textarea><button id="profile-apply" class="secondary">确认使用导入的资料</button>
+<label class="confirmation"><input id="analysis-only" type="checkbox" checked>只搜索和匹配（取消后会生成需逐条审核的草稿）</label>
+<p class="hint">真实发送功能尚未开放。只有示例岗位可演示批准与拒绝流程。</p>
 </details>
-<label for="query">岗位关键词（可选）</label><input id="query" placeholder="例如 Python、Agent">
-<div class="row"><div><label for="source">岗位来源</label><select id="source">
-<option value="mock">Mock 离线样本</option>
-<option value="boss" disabled>BOSS（访问问题待解决）</option>
-<option value="nowcoder" disabled>牛客（真实读取待验收）</option>
-<option value="shixiseng">实习僧公开岗位</option>
-</select></div>
-<div><label for="mode">分析方式</label><select id="mode"><option value="offline">离线演示</option><option value="live">真实 LLM</option></select></div></div>
-<p class="hint">离线分析使用有限词表；真实 LLM 需要先配置 .env。实习僧读取公开页面，其他平台可能要求人工登录。</p>
-<label for="search-limit">最多读取岗位数（实习僧）</label><select id="search-limit"><option value="5">5 条，先试运行</option><option value="10">10 条</option><option value="20">20 条</option><option value="40">40 条，最多两页</option></select>
-<label class="confirmation"><input id="analysis-only" type="checkbox" checked>只搜索和匹配，暂不生成沟通草稿</label>
-<button id="start">开始搜索与分析</button></section>
-<section class="panel"><div class="row between"><h2>任务记录</h2><button id="refresh" class="quiet">刷新</button></div><div id="runs" class="task-list"><p class="muted">暂无已载入的任务</p></div></section>
-</aside>
-<div>
-<section class="panel"><div class="row between"><h2>2. 查看进度</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">任务会保存检查点，可在重启后继续。</p>
-<div class="steps"><span>搜索 / 过滤</span><span>分析 / 匹配</span><span>草稿 / 审批</span><span>执行 / 跟踪</span></div>
-<div id="run-detail"></div><button id="resume" class="secondary" hidden>恢复当前任务</button></section>
-<section class="panel" id="approval-panel" hidden><div class="row between"><h2>审阅沟通草稿</h2><span class="hint">一条草稿，一次批准</span></div>
-<div id="actions"><div class="empty">分析完成后，草稿和证据会出现在这里。<br>未批准的消息不会发送。</div></div></section>
-<section class="panel"><h2>3. 岗位与匹配依据</h2><p class="hint">读到岗位不代表仍在招聘；请在原页核对截止日期、完整要求及名额。</p><div id="results"><p class="muted">等待岗位分析</p></div></section>
-</div></div>
-</main><footer>JobPilot · 所有经历来自你提供的资料 · 登录验证由你本人完成</footer>
+</aside><div>
+<section class="panel"><div class="row between"><h2><span class="step-number">3</span>查看搜索结果</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">结果自动保存在本机，下次打开还能看。</p>
+<div class="steps"><span>寻找岗位</span><span>按条件筛选</span><span>逐条比较</span><span>保存结果</span></div><div id="run-detail"></div><button id="resume" class="secondary" hidden>处理好问题，继续这次搜索</button>
+<div id="results"><div class="empty">你的推荐岗位会出现在这里。<br>每个结果都会告诉你：哪些技能已有经历，哪些还缺少依据。</div></div></section>
+<section class="panel" id="approval-panel" hidden><h2>审阅沟通草稿</h2><div id="actions"></div></section>
+<section class="panel"><div class="row between"><h2>以前的搜索</h2><button id="refresh" class="quiet">刷新记录</button></div><div id="runs" class="task-list"><p class="muted">开始搜索后，记录会出现在这里。</p></div></section>
+</div></div></main><footer>岗位是否仍在招聘，请到原网站核对。匹配依据来自你确认的资料。</footer>
 </body></html>

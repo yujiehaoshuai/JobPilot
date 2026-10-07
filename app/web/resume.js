@@ -8,19 +8,21 @@ function addResumeSkill(quote="") {
     const option=element("option",label); option.value=value; level.append(option);
   }
   const evidence=element("textarea"); evidence.rows=3; evidence.maxLength=10000;
-  evidence.value=quote; evidence.placeholder="从上方正文中选取或复制完整原句";
+  evidence.value=quote; evidence.placeholder="从上方原文复制一句相关经历，例如：在课程项目中，我使用 Python 编写了一个记账工具。";
   evidence.className="resume-skill-quote"; evidence.setAttribute("aria-label","简历原文证据");
   const remove=element("button","移除此条","quiet"); remove.type="button";
-  remove.onclick=()=>{card.remove();byId("resume-confirm").checked=false;};
+  remove.onclick=()=>{card.remove();byId("resume-confirm").checked=false;invalidateCandidate();};
   card.append(skill,level,evidence,remove); byId("resume-skills").append(card);
   byId("resume-confirm").checked=false;
 }
 byId("resume-builder").addEventListener("input",event=>{
   if(event.target.id!=="resume-confirm") byId("resume-confirm").checked=false;
+  invalidateCandidate();
 });
 byId("resume-add").onclick=()=>{
   const text=byId("resume-text");
   addResumeSkill(text.value.slice(text.selectionStart,text.selectionEnd));
+  invalidateCandidate();
 };
 byId("resume-file").onchange=event=>guarded(async()=>{
   const file=event.target.files[0]; if(!file)return;
@@ -31,9 +33,11 @@ byId("resume-file").onchange=event=>guarded(async()=>{
     method:"POST",body:file,headers:{"Content-Type":"application/octet-stream"}
   })).json();
   byId("resume-text").value=result.text; byId("resume-skills").replaceChildren();
-  byId("resume-confirm").checked=false; message(result.notice);
+  addResumeSkill(); invalidateCandidate(); message("正文已读取，请填写技能及相关原句，并核对内容。");
 });
 byId("resume-build").onclick=()=>guarded(async()=>{
+  if(!byId("resume-name").value.trim())throw new Error("请先填写姓名或昵称。");
+  if(!byId("resume-text").value.trim())throw new Error("请先填写简历或经历原文。");
   if(!byId("resume-confirm").checked)throw new Error("请先核对技能证据和程度，再勾选确认。");
   const skills=[...document.querySelectorAll(".resume-skill")].map(card=>({
     skill:card.querySelector(".resume-skill-name").value.trim(),
@@ -46,6 +50,9 @@ byId("resume-build").onclick=()=>guarded(async()=>{
     text:byId("resume-text").value,name:byId("resume-name").value,skills,
     target_roles:split("resume-roles"),target_cities:split("resume-cities"),confirmed:true
   })})).json();
-  byId("profile").value=JSON.stringify(candidate,null,2);
-  message("新资料已生成，原文证据校验通过。请检查求职条件，再开始任务；资料尚未保存。");
+  useCandidate(candidate);
+  message("个人资料已准备好。继续第 2 步，填写关键词并点击“帮我找岗位”。");
 },byId("resume-build"));
+
+// 初次打开就展示一项技能，减少第一次使用时的查找步骤。
+addResumeSkill();

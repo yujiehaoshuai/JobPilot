@@ -11,10 +11,13 @@ import uvicorn
 from playwright.sync_api import sync_playwright, expect
 from app.api.server import create_app
 from app.runtime_config import setting
+from app.models.analysis import GreetingPlan
 
 
 def main():
     with TemporaryDirectory() as folder:
+        settings_patch = patch("app.llm.client.LLM_SETTINGS_PATH", Path(folder) / ".env")
+        settings_patch.start()
         sock = socket.socket()
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -32,25 +35,34 @@ def main():
                 page = browser.new_page(viewport={"width": 1440, "height": 1050})
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                page.goto(f"http://127.0.0.1:{port}")
-                page.locator("#token").fill("dashboard-test-token")
+                page.goto(f"http://127.0.0.1:{port}/#access=dashboard-test-token")
+                expect(page.locator("#connection-status")).to_have_text("已连接本机")
+                assert "#" not in page.url
+                # 自动连接后可刷新；模型密钥只能保存到临时目录，不能进入浏览器存储。
+                page.reload()
+                expect(page.locator("#connection-status")).to_have_text("已连接本机")
+                page.locator("#model-key").fill("synthetic-deepseek-private-key")
+                page.locator("#model-save").click()
+                expect(page.locator("#model-key")).to_have_value("")
+                with patch("app.llm.client.CompatibleLLMClient.complete", return_value=GreetingPlan(evidence_ids=["connection-test"])):
+                    page.locator("#model-test").click()
+                    expect(page.locator("#model-feedback")).to_contain_text("连接成功")
+                assert "synthetic-deepseek-private-key" not in page.evaluate("JSON.stringify({...sessionStorage,...localStorage})")
+                page.locator("#ai-settings summary").click()
                 # 先用虚构文本走简历整理表单，再继续原来的完整工作流回归。
-                page.locator("#resume-builder summary").click()
                 page.locator("#resume-file").set_input_files({"name": "synthetic.txt", "mimeType": "text/plain",
                     "buffer": "虚构同学\n在课程项目中使用 Python 编写测试。".encode("utf-8")})
                 expect(page.locator("#resume-text")).to_have_value(re.compile(".*Python.*", re.S))
                 page.locator("#resume-name").fill("虚构同学")
-                page.get_by_role("button", name="添加技能证据").click()
                 page.get_by_label("技能名称", exact=True).fill("Python")
                 page.get_by_label("技能程度", exact=True).select_option("project_experience")
                 page.get_by_label("简历原文证据", exact=True).fill("在课程项目中使用 Python 编写测试。")
                 page.locator("#resume-confirm").check()
-                page.get_by_role("button", name="生成新资料 JSON").click()
+                page.get_by_role("button", name="确认使用这份资料").click()
                 expect(page.locator("#profile")).to_have_value(re.compile(".*虚构同学.*", re.S))
                 Path("data").mkdir(exist_ok=True)
                 page.screenshot(path="data/resume-smoke.png", full_page=True)
-                page.locator("#resume-builder summary").click()
-                page.get_by_role("button", name="载入虚构示例").click()
+                page.get_by_role("button", name="先用虚构资料体验一下").click()
                 expect(page.locator("#profile")).to_have_value(re.compile(r'.*"skills".*', re.S))
                 # 截获一次实习僧提交，检查页面数量参数；此测试不访问真实平台。
                 captured = []
@@ -60,20 +72,22 @@ def main():
                 page.route("**/api/runs", inspect_start)
                 page.locator("#source").select_option("shixiseng")
                 page.locator("#search-limit").select_option("20")
-                page.get_by_role("button", name="开始搜索与分析").click()
+                page.get_by_role("button", name="帮我找岗位").click()
                 expect(page.locator("#message")).to_contain_text("合成检查已收到搜索参数")
                 assert captured[0]["source"] == "shixiseng" and captured[0]["search_limit"] == 20
                 page.unroute("**/api/runs", inspect_start)
                 page.locator("#source").select_option("mock")
                 # 默认只匹配应直接结束，且页面不能出现待审批动作。
-                page.get_by_role("button", name="开始搜索与分析").click()
+                page.get_by_role("button", name="帮我找岗位").click()
                 expect(page.locator("#run-status")).to_have_text("已完成", timeout=20000)
                 expect(page.locator("#run-detail")).to_contain_text("读取 20 条")
                 assert page.locator("#results .result").count() == 11
                 assert page.locator("#actions .action").count() == 0
                 # 保留旧审批流程回归，显式选择包含草稿的模式。
+                page.locator("#advanced summary").click()
                 page.locator("#analysis-only").uncheck()
-                page.get_by_role("button", name="开始搜索与分析").click()
+                page.locator("#advanced summary").click()
+                page.get_by_role("button", name="帮我找岗位").click()
                 page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 assert page.locator("#results").inner_text().find("已具备") >= 0
                 Path("data").mkdir(exist_ok=True)
@@ -97,11 +111,12 @@ def main():
                 page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 assert not errors, errors
                 browser.close()
-                print("Dashboard load / evidence / reject / simulated approve / manual recovery: OK")
+                print("Dashboard auto-connect / DeepSeek settings / evidence / readonly / approval / recovery: OK")
         finally:
             server.should_exit = True
             thread.join(timeout=15)
             sock.close()
+            settings_patch.stop()
 
 
 if __name__ == "__main__":

@@ -42,8 +42,8 @@ def main():
 
                 page.route("**/api/**", route_api)
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                page.goto(client.base_url)
-                page.locator("#token").fill("synthetic-token")
+                page.goto(client.base_url + "/#access=synthetic-token")
+                expect(page.locator("#connection-status")).to_have_text("已连接本机")
                 page.locator("#refresh").click()
                 page.locator("#runs button").click()
                 expect(page.locator("#run-status")).to_have_text("等待人工处理", timeout=15000)

@@ -32,7 +32,7 @@ Dashboard 默认 `analysis_only=true`；CLI 使用 `--analysis-only`。该模式
 | --- | --- |
 | models | Pydantic 领域数据，不携带连接、浏览器或密钥 |
 | adapters + browser | 读取各平台页面并标准化；选择器集中在 selectors.py |
-| llm | OpenAI 兼容严格 JSON Schema；offline 只是有限词表替身 |
+| llm | Chat Completions / Responses 两种严格 JSON Schema 接口；DeepSeek 使用后者；offline 只是有限词表替身 |
 | services | 确定性规则、引用校验、技能匹配、草稿与审批，不依赖招聘网站 |
 | tools | 普通 Tool Calling 的本进程参数校验和方法分派 |
 | mcp_client / mcp_server | 同一组只读工具的真实 MCP 握手、stdio 和子进程传输 |
@@ -132,3 +132,11 @@ Pydantic 不证明输入经历真实；它只保证结构与字段约束。后�
 配置按环境变量、项目 .env、默认值依次取值，不修改进程环境。标准库 logging 输出 run_id、节点/工具、计数、耗时和失败原因，DEBUG 额外记录 job_id 及过滤结果。CLI 展示集中在 main.py 使用 print，其他模块不直接展示业务结果。
 
 可预期错误使用 JobPilotError 子类，CLI 返回非零退出码。候选人校验只报告字段位置，不输出完整个人资料。默认测试完全离线；真实浏览器测试在将来的 Phase 3 单独建立。
+
+## 本机模型设置与新手入口
+
+页面主流程为中文表单、搜索条件和结果；原始 JSON、本机连接码及模拟审批开关收进高级设置。启动器等待服务启动后，用 URL 片段传入本机连接码，页面立即移除片段；连接码保存在当前页面会话的 sessionStorage，刷新后可继续使用。它不进入 HTTP URL、访问日志或持久的 localStorage。API 继续校验 Host、Origin 和请求凭据，不因简化界面取消鉴权。
+
+`model_settings.py` 只允许页面保存固定的 DeepSeek 服务地址和模型，不接收任意远程地址。先写临时文件，再原子替换 `.env`，保留其他配置；存在更高优先级的进程环境变量时明确拒绝覆盖。所有返回值均不包含服务密钥，校验错误也不回显输入。密钥不保存到浏览器存储。
+
+连接测试是独立、显式的模型请求，只使用固定测试文字并校验结构化结果。保存设置不会触发模型请求或创建求职任务。DeepSeek 使用 Responses 的 `text.format.json_schema`，关闭思考并限制输出长度；本地继续拒绝截断、拒答、工具调用和伪造引用。已有 Chat Completions 协议保留，接口不兼容时明确报错，不自动切换离线结果。
