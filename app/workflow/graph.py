@@ -10,6 +10,7 @@ from app.models.analysis import JobAnalysis, MatchResult, GreetingDraft
 from app.models.action import ActionPayload
 from app.services.filter_service import RuleFilter
 from app.services.deduplication_service import deduplicate_jobs
+from app.services.normalization_service import normalize_job
 from app.services.analysis_service import JobAnalyzer
 from app.services.matching_service import CandidateMatcher
 from app.services.greeting_service import GreetingGenerator
@@ -24,6 +25,9 @@ class AgentState(TypedDict, total=False):
     source: str
     mode: str
     transport: str
+    analysis_only: bool
+    discovery: dict
+    rejected_jobs: list[dict]
     jobs: list[dict]
     index: int
     results: list[dict]
@@ -63,7 +67,16 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
             except BrowserPausedError as exc:
                 interrupt({"kind": "browser", "message": str(exc), "source": state["source"]})
         profile = candidate(state)
-        jobs = deduplicate_jobs([job for job in jobs if RuleFilter().evaluate(profile, job).passed])
+        received = len(jobs)
+        accepted, rejected = [], []
+        for raw_job in jobs:
+            job = normalize_job(raw_job)
+            decision = RuleFilter().evaluate(profile, job)
+            if decision.passed:
+                accepted.append(job)
+            else:
+                rejected.append({"job": job.model_dump(mode="json"), "reasons": decision.reasons})
+        jobs = deduplicate_jobs(accepted)
         tracker.save_candidate(profile)
         tracker.save_jobs(jobs)
         normalized = []
@@ -73,6 +86,9 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
             normalized.append(job.model_dump(mode="json"))
         tools = getattr(adapter, "tools", adapter)
         return {"jobs": normalized, "index": 0, "results": [], "status": "RUNNING",
+                "discovery": {"received": received, "rejected": len(rejected),
+                              "duplicates": len(accepted) - len(jobs), "retained": len(jobs)},
+                "rejected_jobs": rejected,
                 "tool_events": list(getattr(tools, "events", []))}
 
     def analyze(state):
@@ -82,7 +98,8 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         match = CandidateMatcher().match(candidate(state), current_job(state), analysis)
         record_progress(state, "SHORTLISTED" if match.shortlisted else "ANALYZED")
         return {"analysis": analysis.model_dump(mode="json"), "match": match.model_dump(mode="json"),
-                "draft": None, "action_id": None, "outcome": "NOT_SHORTLISTED",
+                "draft": None, "action_id": None,
+                "outcome": "MATCHED" if state.get("analysis_only") and match.shortlisted else "NOT_SHORTLISTED",
                 "usage": [*state.get("usage", []), *[item.model_dump() for item in client.usage[usage_start:]]]}
 
     def draft(state):
@@ -146,7 +163,8 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         graph.add_node(name, node)
     graph.add_edge(START, "discover")
     graph.add_conditional_edges("discover", remaining, ["analyze", "finish"])
-    graph.add_conditional_edges("analyze", lambda state: "draft" if state["match"]["shortlisted"] else "advance",
+    graph.add_conditional_edges("analyze", lambda state: "draft" if state["match"]["shortlisted"]
+                                and not state.get("analysis_only", False) else "advance",
                                 ["draft", "advance"])
     for start, end in [("draft", "prepare"), ("prepare", "review"), ("review", "execute"),
                        ("execute", "advance"), ("finish", END)]:

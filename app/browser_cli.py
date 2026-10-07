@@ -35,6 +35,12 @@ def main() -> int:
             parser.error(str(exc))
     site, adapter_type = PLATFORMS[args.source]
     try:
+        if args.source == "shixiseng" and args.command == "search":
+            from app.adapters.http_reader import PublicPageReader
+            with PublicPageReader(site) as reader:
+                for job in adapter_type(reader, args.limit).search_jobs([args.query]):
+                    print(job.model_dump_json())
+            return 0
         if args.manual:
             from app.browser.manual_login import manual_login
             manual_login(site, PROJECT_ROOT / "profiles" / args.source)

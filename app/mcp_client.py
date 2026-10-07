@@ -17,7 +17,7 @@ class MCPJobAdapter(JobSourceAdapter):
     """每次只读调用启动受控子进程；浏览器登录资料仍持久保存在磁盘。"""
 
     def __init__(self, source="mock"):
-        if source not in {"mock", "boss", "nowcoder"}:
+        if source not in {"mock", "boss", "nowcoder", "shixiseng"}:
             raise ValueError("未注册的 MCP 岗位来源")
         self.source, self.events = source, []
 

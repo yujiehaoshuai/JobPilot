@@ -5,9 +5,9 @@
 <script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script></head>
 <body>
 <header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>让每一次沟通都有依据</small></div></div>
-<span class="badge">本地工作台 · 人工审批</span></header>
+<span class="badge">本地工作台 · 岗位与证据</span></header>
 <main>
-<section class="intro"><p class="eyebrow">求职工作流</p><h1>找到机会，先看证据。</h1><p>从岗位分析到沟通草稿，由你决定最后一步。</p></section>
+<section class="intro"><p class="eyebrow">求职工作流</p><h1>找到机会，先看证据。</h1><p>先看真实岗位、匹配项和缺失项，再决定下一步。</p></section>
 <div id="message" role="status" aria-live="polite">输入本机令牌，载入资料后即可开始离线演示。</div>
 <div class="layout">
 <aside>
@@ -31,11 +31,13 @@
 <label for="query">岗位关键词（可选）</label><input id="query" placeholder="例如 Python、Agent">
 <div class="row"><div><label for="source">岗位来源</label><select id="source">
 <option value="mock">Mock 离线样本</option>
-<option value="boss">BOSS 只读搜索</option>
-<option value="nowcoder">牛客只读搜索</option>
+<option value="boss" disabled>BOSS（访问问题待解决）</option>
+<option value="nowcoder" disabled>牛客（真实读取待验收）</option>
+<option value="shixiseng">实习僧公开岗位</option>
 </select></div>
 <div><label for="mode">分析方式</label><select id="mode"><option value="offline">离线演示</option><option value="live">真实 LLM</option></select></div></div>
-<p class="hint">离线分析使用有限词表；真实 LLM 需要先配置 .env。真实网站要求人工登录。</p>
+<p class="hint">离线分析使用有限词表；真实 LLM 需要先配置 .env。实习僧读取公开页面，其他平台可能要求人工登录。</p>
+<label class="confirmation"><input id="analysis-only" type="checkbox" checked>只搜索和匹配，暂不生成沟通草稿</label>
 <button id="start">开始搜索与分析</button></section>
 <section class="panel"><div class="row between"><h2>任务记录</h2><button id="refresh" class="quiet">刷新</button></div><div id="runs" class="task-list"><p class="muted">暂无已载入的任务</p></div></section>
 </aside>
@@ -43,9 +45,9 @@
 <section class="panel"><div class="row between"><h2>2. 查看进度</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">任务会保存检查点，可在重启后继续。</p>
 <div class="steps"><span>搜索 / 过滤</span><span>分析 / 匹配</span><span>草稿 / 审批</span><span>执行 / 跟踪</span></div>
 <div id="run-detail"></div><button id="resume" class="secondary" hidden>恢复当前任务</button></section>
-<section class="panel"><div class="row between"><h2>3. 审阅沟通草稿</h2><span class="hint">一条草稿，一次批准</span></div>
+<section class="panel" id="approval-panel" hidden><div class="row between"><h2>审阅沟通草稿</h2><span class="hint">一条草稿，一次批准</span></div>
 <div id="actions"><div class="empty">分析完成后，草稿和证据会出现在这里。<br>未批准的消息不会发送。</div></div></section>
-<section class="panel"><h2>岗位与匹配依据</h2><div id="results"><p class="muted">等待岗位分析</p></div></section>
+<section class="panel"><h2>3. 岗位与匹配依据</h2><p class="hint">读到岗位不代表仍在招聘；请在原页核对截止日期、完整要求及名额。</p><div id="results"><p class="muted">等待岗位分析</p></div></section>
 </div></div>
 </main><footer>JobPilot · 所有经历来自你提供的资料 · 登录验证由你本人完成</footer>
 </body></html>

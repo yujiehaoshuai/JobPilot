@@ -42,19 +42,35 @@ function showState(run) {
   byId("run-id").textContent = `任务 ${run.id} · ${run.source} / ${run.mode}`;
   byId("run-detail").replaceChildren();
   const state = run.snapshot || {};
+  const analysisOnly = state.analysis_only ?? run.input?.analysis_only ?? false;
+  byId("approval-panel").hidden = analysisOnly;
+  const steps = analysisOnly ? ["搜索 / 读取", "筛选 / 去重", "分析 / 匹配", "保存 / 展示"] : ["搜索 / 过滤", "分析 / 匹配", "草稿 / 审批", "执行 / 跟踪"];
+  document.querySelector(".steps").replaceChildren(...steps.map(text => element("span", text)));
+  if (state.candidate) byId("run-detail").append(element("p",`候选人：${state.candidate.name}`,"hint"));
+  if (state.discovery) {
+    const count = state.discovery;
+    byId("run-detail").append(element("p",`读取 ${count.received} 条，规则排除 ${count.rejected} 条，去重 ${count.duplicates} 条，保留 ${count.retained} 条。`,"hint"));
+  }
+  if (state.analysis_only) byId("run-detail").append(element("p","本任务只搜索和匹配，不生成沟通草稿。","hint"));
   byId("run-detail").append(element("p",`已处理 ${state.index || 0} / ${(state.jobs || []).length} 个岗位`,"hint"));
   if (run.error) byId("run-detail").append(element("p",run.error));
   for (const item of run.interrupts || []) if (["browser","action_recovery"].includes(item.kind)) byId("run-detail").append(element("p",item.message));
   byId("resume").hidden = !["PAUSED","FAILED","RUNNING"].includes(run.status);
   const results = byId("results"); results.replaceChildren();
   const rows = [...(state.results || [])];
-  if (state.match && state.jobs && state.index < state.jobs.length) rows.push({job:state.jobs[state.index],match:state.match,outcome:"审阅中"});
+  if (state.match && Object.keys(state.match).length && state.jobs && state.index < state.jobs.length) rows.push({job:state.jobs[state.index],match:state.match,outcome:"分析中"});
   for (const row of rows) {
     const card = element("article",undefined,"result");
     card.append(element("h3",row.job.title), element("p",`${row.job.company} · ${row.job.city || "城市未注明"}`,"hint"));
-    showMatch(card,row.match); card.append(element("p",statusNames[row.outcome] || row.outcome,"hint")); results.append(card);
+    const link = element("a","查看岗位原页"); link.href=row.job.url; link.target="_blank"; link.rel="noopener noreferrer"; card.append(link);
+    showMatch(card,row.match); card.append(element("p",row.outcome === "MATCHED" ? "有技能匹配，仍需核对完整要求" : statusNames[row.outcome] || row.outcome,"hint")); results.append(card);
   }
-  if (!rows.length) results.append(element("p","等待岗位分析","muted"));
+  if (!rows.length) results.append(element("p",run.status === "COMPLETED" ? "本轮没有通过规则筛选的岗位，请查看排除原因。" : "等待岗位分析","muted"));
+  for (const row of state.rejected_jobs || []) {
+    const detail = element("details"); detail.append(element("summary",`已排除：${row.job.title} · ${row.job.company}`));
+    for (const reason of row.reasons) detail.append(element("p",reason,"hint"));
+    results.append(detail);
+  }
 }
 async function showActions() {
   const runId = currentRun;
@@ -158,8 +174,9 @@ byId("example").onclick=()=>guarded(async()=>{byId("profile").value=JSON.stringi
 byId("profile-file").onchange=event=>guarded(async()=>{const file=event.target.files[0]; if(!file)return; if(file.size>500000)throw new Error("资料文件过大"); byId("profile").value=JSON.stringify(JSON.parse(await file.text()),null,2); message("资料已载入页面，开始任务后保存到本机数据库。");});
 byId("start").onclick=()=>guarded(async()=>{
   const candidate=JSON.parse(byId("profile").value); const query=byId("query").value.trim();
-  const result=await (await api("/api/runs",{method:"POST",body:JSON.stringify({candidate,queries:query?[query]:[],source:byId("source").value,mode:byId("mode").value})})).json();
-  message("任务已创建。草稿生成后会等待你逐条审批。"); await refreshRuns(); await selectRun(result.id);
+  const analysisOnly=byId("analysis-only").checked;
+  const result=await (await api("/api/runs",{method:"POST",body:JSON.stringify({candidate,queries:query?[query]:[],source:byId("source").value,mode:byId("mode").value,analysis_only:analysisOnly})})).json();
+  message(analysisOnly ? "任务已创建，只进行搜索和匹配。" : "任务已创建。草稿生成后会等待你逐条审批。"); await refreshRuns(); await selectRun(result.id);
 },byId("start"));
 byId("refresh").onclick=()=>guarded(refreshRuns,byId("refresh"));
 byId("resume").onclick=()=>guarded(async()=>{await api(`/api/runs/${currentRun}/resume`,{method:"POST"}); await selectRun(currentRun);},byId("resume"));

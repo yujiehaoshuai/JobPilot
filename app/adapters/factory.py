@@ -5,18 +5,24 @@ from app.config import PROJECT_ROOT, load_settings
 from app.adapters.mock.adapter import MockJobAdapter
 from app.adapters.boss import BossAdapter
 from app.adapters.nowcoder import NowcoderAdapter
+from app.adapters.shixiseng import ShixisengAdapter
+from app.adapters.http_reader import PublicPageReader
 from app.browser.session import BrowserSession
-from app.browser.selectors import BOSS, NOWCODER
+from app.browser.selectors import BOSS, NOWCODER, SHIXISENG
 from app.runtime_config import setting
 
-PLATFORMS = {"boss": (BOSS, BossAdapter), "nowcoder": (NOWCODER, NowcoderAdapter)}
+PLATFORMS = {"boss": (BOSS, BossAdapter), "nowcoder": (NOWCODER, NowcoderAdapter),
+             "shixiseng": (SHIXISENG, ShixisengAdapter)}
 
 
 @contextmanager
 def open_adapter(source: str):
-    """浏览器由调用方负责关闭；所有平台共用同一接口。"""
+    """上下文退出时关闭读取资源；实习僧公开 HTML 不需要启动浏览器。"""
     if source == "mock":
         yield MockJobAdapter(load_settings().jobs_path)
+    elif source == "shixiseng":
+        with PublicPageReader(SHIXISENG) as session:
+            yield ShixisengAdapter(session)
     elif source in PLATFORMS:
         site, adapter_type = PLATFORMS[source]
         with BrowserSession(site, PROJECT_ROOT / "profiles" / source,

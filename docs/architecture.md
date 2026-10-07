@@ -5,12 +5,13 @@
 ```mermaid
 flowchart TD
     A[CandidateProfile 真实材料] --> D[统一岗位与规则过滤]
-    B[Mock / BOSS / 牛客 Adapter] --> C[普通工具分派或 MCP Client + Server]
+    B[实习僧公开 HTTP / Mock / 暂缓的浏览器 Adapter] --> C[普通工具分派或 MCP Client + Server]
     C --> D
     D --> E[去重与 Tracker]
     E --> F[JobAnalyzer 结构化 JD 与原文引用]
     F --> G[CandidateMatcher 真实候选人证据]
-    G --> H[GreetingGenerator 草稿]
+    G -->|只搜索匹配| L[记录结果并处理下一岗位]
+    G -->|包含沟通草稿| H[GreetingGenerator 草稿]
     H --> I[PendingAction 完整快照和摘要]
     I --> J[LangGraph Interrupt 等待人工审批]
     J -->|拒绝| L[记录结果并处理下一岗位]
@@ -22,6 +23,10 @@ flowchart TD
 ```
 
 图遍历结束后进入 COMPLETED。真实发送执行器目前停在尚未验收的平台契约处；图中执行边已用模拟动作测试，不能理解为真实平台发送已可用。
+
+当前先跑通一个真实来源：实习僧。`PublicPageReader` 只发送公开 GET，校验平台主机和路径、限制跳转与正文大小、请求至少间隔一秒。401/403/429 或登录验证会暂停，不切换指纹、不解验证码，也不读取浏览器 Cookie。`ShixisengAdapter` 从列表取编号，再解析详情；特殊字体不能可靠解释时停止或将可选字段保留未知。两种读取器共享 `PageReader` 契约，后面的服务不依赖传输方式。
+
+Dashboard 默认 `analysis_only=true`；CLI 使用 `--analysis-only`。该模式在分析后直接进入下一岗位，不创建草稿或 PendingAction。原有任务和未指定该字段的 API 请求保持旧流程。`discovery` 与 `rejected_jobs` 保存读取数、排除原因和去重数，避免把零匹配误判成零数据。这里只验证技能证据，不能据此认定学历、毕业年份、语言或招聘有效期均符合。
 
 | 层 | 职责与边界 |
 | --- | --- |

@@ -48,3 +48,15 @@ NOWCODER = SiteSpec(
     salary=".job-detail-wrap .salary", empty=".job-list .el-empty, .job-list-empty",
 )
 NOWCODER_EXTRA = ".job-detail-wrap .extra"
+
+# 2026-10-07：本机公开 HTML 验收。列表文字可能为特殊字体，只从列表取链接。
+SHIXISENG = SiteSpec(
+    source="shixiseng", home="https://www.shixiseng.com", hosts=("www.shixiseng.com",),
+    search_path="/interns?keyword={query}", detail_pattern=r"/intern/(inn_[A-Za-z0-9]+)",
+    links='a[href*="/intern/inn_"]', title=".new_job_name", company=".com-name",
+    description=".job_detail", city=".job_position", salary=".job_money",
+    # 尚未验收真实空结果节点，宁可报结构未知，也不把无内容页面误报成零岗位。
+    empty="[data-jobpilot-unverified-empty-marker]",
+)
+SHIXISENG_DAYS = ".job_week"
+SHIXISENG_MONTHS = ".job_time"

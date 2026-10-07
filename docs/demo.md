@@ -28,9 +28,9 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 打开 `http://127.0.0.1:8000`。页面令牌使用 `.env` 中的 JOBPILOT_API_TOKEN；未配置时，由服务生成到 `data/agent/api-token.txt`，仅在自己的本机页面输入。接口说明位于 `/docs`，完整 Schema 位于 `/openapi.json`。
 
 1. 填入访问令牌，点击“载入虚构示例”；真实资料应从自己的 Candidate Profile JSON 导入。
-2. 选择 Mock 与 offline，填写 Python 查询，开始搜索与分析。
+2. 先选择 Mock 与 offline，保留默认“只搜索和匹配”，开始搜索与分析；完成后可换成“实习僧公开岗位”读取真实岗位。
 3. 查看通过规则过滤的岗位、匹配项、学习中技能、缺失证据和风险。
-4. 展开 JD 引用和候选人原文，核对草稿全文与审批摘要。
+4. 展开 JD 引用和候选人原文。当前主流程到匹配结束；若要演示下面的模拟审批，另建 Mock 任务并取消“只搜索和匹配”。
 5. 拒绝一条草稿，观察流程继续到下一岗位；批准一条模拟草稿，观察模拟回执。两者都不向招聘方发送消息。
 6. 停止服务再启动，刷新任务列表，选择原任务并恢复；Resume 本身不能代替 Approve。
 7. 对 EXECUTING/UNCERTAIN 结果，先在平台人工核对再填写依据。确认未发送会结束该动作；想重试须创建新任务并重新审批。
@@ -40,6 +40,21 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 上传原始文件仅在内存处理；生成资料不会自动建任务，开始任务后才持久化确认的 CandidateProfile。DOCX 只读取正文段落和表格，不读取图片、页眉页脚和批注；PDF、扫描件和旧版 .doc 暂需手动复制或转换文字。未知信息保留未知，示例经历不可当作真实经历使用。
 
 ## CLI 与浏览器
+
+当前只推进实习僧；BOSS 和牛客入口保留供以后排查，Dashboard 暂时禁用这两个来源。实习僧搜索默认读取第一页、最多 5 条详情，不自动翻页。候选人城市、标题和到岗天数会照常过滤，零匹配时查看排除原因，不要为了得到结果而改写自己的真实条件。
+
+```powershell
+# 单独确认真实数据入口，最多读取三条详情
+.\.venv\Scripts\python.exe -m app.browser_cli search --source shixiseng --query Python --limit 3
+# 用自己的资料只做匹配；offline 是有限词表，配置模型后再换 live
+.\.venv\Scripts\python.exe -m app.workflow_cli start --source shixiseng --query Python --candidate data/candidate.json --analysis-only --mode offline --data data/shixiseng-cli
+# 查看本次已保存的真实岗位演示；候选人是虚构资料
+.\.venv\Scripts\python.exe -m app.server --data data/shixiseng-demo --port 8000
+```
+
+最后一个命令使用独立演示库，令牌位于 `data/shixiseng-demo/api-token.txt`（若 .env 配了 JOBPILOT_API_TOKEN 则使用配置值）。刷新并选择已有任务，即可查看本次结果；无需重新抓取。
+
+2026-10-07 本机真实验收：公开搜索取回 5 条完整岗位，虚构 Python 示例按规则排除 1 条、保留并匹配 4 条；API 任务 COMPLETED、0 个动作，重建服务实例后结果一致。没有真实 LLM 配置，因此不宣称语义分析或用户本人匹配已验收。页面刷新时间不是发布时间，部分 JD 可能陈旧；招聘截止日期及名额应在原页核对。
 
 ```powershell
 # 保留的 Phase 1 程序：20 个样本 → 13 个通过过滤 → 11 个唯一岗位
@@ -104,7 +119,7 @@ Compose 按 PostgreSQL 健康检查 → Alembic 迁移 → API 的顺序启动�
 
 - BOSS 普通 Edge 登录后可搜索并查看详情，已由用户确认；程序化访问仍在 HTTP 200 后跳到 about:blank。单次导航诊断未记录空白跳转原因，读取尚未验收，停止重复访问；详见 browser-login-diagnosis.md。
 - 牛客真实搜索要求登录或验证，本地 fixtures 验证不等于线上成功。
-- 实习僧公开请求返回 403，已停止访问；Phase 13 尚未实现并验收。
+- 实习僧 2026-10-07 的公开读取和匹配已通过；此前出现过 403，不能保证网站持续可用。空结果标记、翻页和需要解码的字体字段尚未开放。
 - 真实发送执行器仍明确暂停，必须完成收件人和页面契约验收后才可开放；逐动作批准规则不会取消。
 - LLM 配置未提供；真实供应商兼容性、质量、延迟和费用尚未验证。
 - 当前为单机单工作线程、有限队列与文件锁。暂不需要 Redis，不支持多主机同时使用同一浏览器资料。

@@ -30,10 +30,11 @@ class StartRun(DomainModel):
     """提交资料时立即使用领域模型校验，禁止随意传入文件路径或代码。"""
 
     candidate: CandidateProfile
-    source: Literal["mock", "boss", "nowcoder"] = "mock"
+    source: Literal["mock", "boss", "nowcoder", "shixiseng"] = "mock"
     mode: Literal["offline", "live"] = "offline"
     transport: Literal["direct", "mcp"] = "direct"
     queries: list[str] = Field(default_factory=list, max_length=5)
+    analysis_only: bool = Field(default=False, strict=True)
 
 
 class Decision(DomainModel):

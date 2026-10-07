@@ -29,7 +29,7 @@ class UnverifiedPlatformExecutor:
 @contextmanager
 def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None, database_url=None,
                transport="direct"):
-    """只有真实来源才启动浏览器；默认运行完全离线。"""
+    """按来源选择公开 HTTP 或浏览器；Mock 默认运行完全离线。"""
     from contextlib import ExitStack
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)

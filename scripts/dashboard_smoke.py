@@ -52,6 +52,14 @@ def main():
                 page.locator("#resume-builder summary").click()
                 page.get_by_role("button", name="载入虚构示例").click()
                 expect(page.locator("#profile")).to_have_value(re.compile(r'.*"skills".*', re.S))
+                # 默认只匹配应直接结束，且页面不能出现待审批动作。
+                page.get_by_role("button", name="开始搜索与分析").click()
+                expect(page.locator("#run-status")).to_have_text("已完成", timeout=20000)
+                expect(page.locator("#run-detail")).to_contain_text("读取 20 条")
+                assert page.locator("#results .result").count() == 11
+                assert page.locator("#actions .action").count() == 0
+                # 保留旧审批流程回归，显式选择包含草稿的模式。
+                page.locator("#analysis-only").uncheck()
                 page.get_by_role("button", name="开始搜索与分析").click()
                 page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 assert page.locator("#results").inner_text().find("已具备") >= 0

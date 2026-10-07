@@ -15,11 +15,12 @@ def main():
     parser = argparse.ArgumentParser(description="持久化求职工作流")
     parser.add_argument("command", choices=["start", "status", "resume"])
     parser.add_argument("--id")
-    parser.add_argument("--source", choices=["mock", "boss", "nowcoder"], default="mock")
+    parser.add_argument("--source", choices=["mock", "boss", "nowcoder", "shixiseng"], default="mock")
     parser.add_argument("--mode", choices=["offline", "live"], default="offline")
     parser.add_argument("--transport", choices=["direct", "mcp"], default="direct")
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--query", action="append")
+    parser.add_argument("--analysis-only", action="store_true", help="只搜索、过滤和匹配，不生成草稿或审批动作")
     parser.add_argument("--data", type=Path, default=Path("data/agent"))
     args = parser.parse_args()
     run_id = args.id or str(uuid4())
@@ -34,7 +35,7 @@ def main():
             profile = load_candidate(args.candidate or load_settings().candidate_path)
             graph.invoke({"run_id": run_id, "candidate": profile.model_dump(mode="json"),
                           "queries": args.query or [], "source": args.source, "mode": args.mode,
-                          "transport": args.transport}, config)
+                          "transport": args.transport, "analysis_only": args.analysis_only}, config)
         elif not existing.values:
             parser.error("找不到该任务")
         elif (existing.values["source"], existing.values["mode"], existing.values.get("transport", "direct")) != (args.source, args.mode, args.transport):

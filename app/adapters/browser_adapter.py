@@ -1,20 +1,27 @@
 """将平台 DOM 转换为统一岗位；过滤、匹配和跟踪不接触选择器。"""
 
 import re
+from typing import Protocol
 from urllib.parse import quote, urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 from app.adapters.base import JobSourceAdapter
 from app.browser.selectors import SiteSpec
-from app.browser.session import BrowserSession
 from app.exceptions import JobParseError, SelectorChangedError
 from app.models.job import JobPosting
+
+
+class PageReader(Protocol):
+    """浏览器与公开 HTTP 共用的读取契约；业务解析不关心传输方式。"""
+
+    def validate_url(self, url: str) -> None: ...
+    def read(self, url: str, expected_selector: str) -> str: ...
 
 
 class ReadonlyBrowserAdapter(JobSourceAdapter):
     """有上限地读取当前搜索页，不自动翻页，也不触发沟通按钮。"""
 
-    def __init__(self, session: BrowserSession, site: SiteSpec, limit: int = 10) -> None:
+    def __init__(self, session: PageReader, site: SiteSpec, limit: int = 10) -> None:
         if not 1 <= limit <= 50:
             raise ValueError("单次搜索上限必须在 1 到 50 之间")
         self.session, self.site, self.limit = session, site, limit
