@@ -6,46 +6,37 @@
 <body>
 <header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>帮你看岗位，也帮你看差距</small></div></div><span id="connection-status" class="badge">正在连接本机程序</span></header>
 <main>
-<section class="intro"><p class="eyebrow">你的求职小助手</p><h1>把简历里会的，和岗位要的对上。</h1><p>填写个人情况，搜索岗位，看看哪些适合你、还需要补什么。</p>
+<section class="intro"><p class="eyebrow">你的求职小助手</p><h1>把简历里会的，和岗位要的对上。</h1><p>粘贴简历，写下想找的岗位。AI 帮你整理经历、比较岗位，把值得优先看的排在前面。</p>
 <button id="example" class="secondary">先用虚构资料体验一下</button><span class="hint">不用密钥，不花钱，也不会发送消息。</span></section>
-<div id="message" role="status" aria-live="polite">首次使用：先连接 DeepSeek，再填写个人情况。也可以先体验示例。</div>
-<div class="layout"><aside>
-<section class="panel"><details id="ai-settings" open><summary><strong>连接 DeepSeek</strong><span id="ai-status" class="hint">尚未设置</span></summary>
-<p>AI 负责读懂岗位要求。程序再按你填写的个人经历逐条比较。</p>
-<p class="hint">在 DeepSeek 开放平台创建一把“API Key”（服务密钥），复制到下方即可。它相当于让本程序使用你的 AI 账户的密码。</p>
-<a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">前往 DeepSeek 获取服务密钥 ↗</a>
-<label for="model-key">粘贴 DeepSeek 服务密钥</label><input id="model-key" type="password" autocomplete="off" spellcheck="false" placeholder="只在这里填写，不用发到聊天里" maxlength="512">
-<div class="row"><button id="model-save">保存密钥</button><button id="model-test" class="secondary">测试连接</button></div>
-<p id="model-feedback" class="hint" role="status">只保存在本机。保存不会调用 AI；测试连接和分析岗位会按 DeepSeek 账户规则计费。</p>
-<p class="hint">当前搜索匹配只把岗位说明发给 AI；简历正文在本机整理，不会自动上传。</p>
-</details></section>
+<div id="message" role="status" aria-live="polite">粘贴简历、填写岗位意向即可开始；也可以先用虚构示例体验。</div>
+<div class="layout"><aside class="panel search-panel">
+<h2>找适合你的岗位</h2>
 <form id="search-form">
-<section class="panel"><h2><span class="step-number">1</span>告诉我你会什么</h2>
-<p id="profile-notice" class="hint">下面填什么，搜索时就使用什么。请只写自己的真实经历。</p>
-<div id="resume-builder">
-<label for="resume-name">怎么称呼你</label><input id="resume-name" required maxlength="100" placeholder="姓名或昵称都可以">
-<label for="resume-text">简历或经历原文</label><textarea id="resume-text" required rows="5" maxlength="100000" placeholder="例如：在课程项目中，我使用 Python 编写了一个记账工具。只写自己做过的事情。"></textarea>
-<label class="file">从文件读取正文<input id="resume-file" type="file" accept=".txt,.md,.docx"></label><p class="hint">支持 Word（.docx）和文本文件。PDF 请复制文字后粘贴到上方。</p>
-<p class="hint">挑出你想用来找工作的技能，每项附上一句自己的原文。这样匹配结果才有依据。</p>
-<div id="resume-skills"></div><button id="resume-add" class="secondary" type="button">再加一项技能</button>
-<div class="row"><div><label for="resume-roles">只看这些岗位名称（选填）</label><input id="resume-roles" placeholder="例如 Python；多个用逗号隔开"></div><div><label for="resume-cities">想工作的城市（选填）</label><input id="resume-cities" placeholder="不填表示不限城市"></div></div>
-<label for="resume-employment">想找哪种工作</label><select id="resume-employment"><option value="internship">实习</option><option value="full_time">全职</option><option value="any">暂不限</option></select>
-<div class="row" id="availability"><div><label for="resume-days">每周能到岗几天</label><select id="resume-days"><option value="">还不确定</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div><div><label for="resume-months">能连续实习几个月</label><input id="resume-months" type="number" min="1" max="120" step="1" placeholder="例如 6，不确定可留空"></div></div>
-<p class="hint">填写好后直接点击下方“帮我找岗位”。原始简历文件不保存。</p>
-</div></section>
-<section class="panel"><h2><span class="step-number">2</span>想找什么工作</h2>
-<label for="query">岗位关键词</label><input id="query" placeholder="例如 Python 实习生">
-<div class="row"><div><label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧 · 真实岗位</option><option value="nowcoder">牛客 · 真实岗位</option><option value="mock">示例岗位 · 练习用</option></select></div>
-<div><label for="mode">怎么分析</label><select id="mode"><option value="live">让 AI 分析</option><option value="offline">基础演示（不调用 AI）</option></select></div></div>
-<p id="mode-hint" class="hint">AI 分析需要先在上方连接 DeepSeek。</p>
-<label for="search-limit">这次最多看多少条</label><select id="search-limit"><option value="5">5 条 · 建议先试一下</option><option value="10">10 条</option><option value="20">20 条</option><option value="40">40 条</option></select>
-<p id="source-hint" class="hint">搜索真实岗位需要一些时间。没有合适结果时，可以换个关键词。</p>
-<button id="start" type="submit">帮我找岗位</button><p class="hint">目前只读取、分析和保存结果，不会替你发消息或投递。</p>
-</section>
+<label for="resume-text">粘贴你的简历</label><textarea id="resume-text" required rows="9" maxlength="30000" placeholder="直接粘贴简历全文。AI 会提炼技能、项目和经历，不需要你逐项填写。"></textarea>
+<label class="file">从 Word 或文本文件读取<input id="resume-file" type="file" accept=".txt,.md,.docx"></label>
+<p id="profile-notice" class="hint">只写真实经历。AI 提炼结果会附原文，供你核对。</p>
+<label for="query">想找什么岗位</label><input id="query" required maxlength="200" placeholder="例如 Python 后端、AI 应用开发">
+<p class="hint">只填一次。会扩展相近关键词，不要求岗位名称一字不差。</p>
+<div class="row"><div><label for="resume-cities">工作城市（选填）</label><input id="resume-cities" placeholder="如 上海，杭州；不填不限"></div><div><label for="resume-employment">工作类型</label><select id="resume-employment"><option value="internship">实习</option><option value="full_time">全职</option><option value="any">不限</option></select></div></div>
+<p class="hint">填写城市后只保留这些城市的岗位。</p>
+<div class="row" id="availability"><div><label for="resume-days">每周能到岗几天（选填）</label><select id="resume-days"><option value="">按简历，没写则待确认</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div><div><label for="resume-months">能实习几个月（选填）</label><input id="resume-months" type="number" min="1" max="120" step="1" placeholder="按简历，或自行填写"></div></div>
+<p class="hint">时间只影响评分，不直接淘汰。能到岗 3 天，也会保留要求 4、5 天的机会并提醒你。</p>
+<label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧</option><option value="nowcoder">牛客</option><option value="mock">示例演示 · 免费</option></select>
+<p id="source-hint" class="hint"></p>
+<button id="start" type="submit">帮我找岗位</button>
+<p id="mode-hint" class="hint"></p>
+<p class="hint">AI 会读取你的简历和岗位说明，并按服务商规则计费。结果保存在本机；不会发消息或投递。</p>
 </form>
+<details id="ai-settings"><summary><strong>连接 DeepSeek</strong><span id="ai-status" class="hint">尚未设置</span></summary>
+<p class="hint">首次使用时填写一次，之后不用重复设置。</p>
+<a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">前往 DeepSeek 获取服务密钥 ↗</a>
+<label for="model-key">DeepSeek 服务密钥</label><input id="model-key" type="password" autocomplete="off" spellcheck="false" placeholder="只在本机填写，不要发到聊天" maxlength="512">
+<div class="row"><button id="model-save" type="button">保存密钥</button><button id="model-test" type="button" class="secondary">测试连接</button></div>
+<p id="model-feedback" class="hint" role="status">密钥只保存在本机。保存不调用 AI，测试连接会调用一次。</p>
+</details>
 </aside><div>
-<section class="panel"><div class="row between"><h2><span class="step-number">3</span>查看搜索结果</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">结果自动保存在本机，下次打开还能看。</p>
-<div class="steps"><span>寻找岗位</span><span>按条件筛选</span><span>逐条比较</span><span>保存结果</span></div><div id="run-detail"></div><button id="resume" class="secondary" hidden>处理好问题，继续这次搜索</button>
+<section class="panel"><div class="row between"><h2>值得优先看的岗位</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">结果自动保存在本机，下次打开还能看。</p>
+<div class="steps"><span>理解简历</span><span>寻找岗位</span><span>比较评分</span><span>复核前几名</span></div><div id="run-detail"></div><button id="resume" class="secondary" hidden>处理好问题，继续这次搜索</button>
 <div id="results"><div class="empty">你的推荐岗位会出现在这里。<br>每个结果都会告诉你：哪些技能已有经历，哪些还缺少依据。</div></div></section>
 <section class="panel"><div class="row between"><h2>以前的搜索</h2><button id="refresh" class="quiet">刷新记录</button></div><div id="runs" class="task-list"><p class="muted">开始搜索后，记录会出现在这里。</p></div></section>
 </div></div></main><footer>岗位是否仍在招聘，请到原网站核对。匹配依据来自你填写的资料。</footer>

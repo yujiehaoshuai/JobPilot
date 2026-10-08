@@ -65,6 +65,7 @@ JobPilot/
 │   │   ├── base.py
 │   │   ├── candidate.py
 │   │   ├── job.py
+│   │   ├── search.py
 │   │   └── resume.py
 │   ├── services/
 │   │   ├── __init__.py
@@ -76,6 +77,7 @@ JobPilot/
 │   │   ├── matching_service.py
 │   │   ├── model_settings.py
 │   │   ├── normalization_service.py
+│   │   ├── ranking_service.py
 │   │   └── resume_service.py
 │   ├── storage/
 │   │   ├── __init__.py
@@ -195,6 +197,7 @@ JobPilot/
 │   │   ├── test_mcp_protocol.py
 │   │   ├── test_model_settings.py
 │   │   ├── test_relational_storage.py
+│   │   ├── test_ranked_workflow.py
 │   │   ├── test_resume_api.py
 │   │   ├── test_system_recovery.py
 │   │   └── test_workflow.py
@@ -217,6 +220,7 @@ JobPilot/
 │   │   ├── test_models.py
 │   │   ├── test_nowcoder_adapter.py
 │   │   ├── test_reliability.py
+│   │   ├── test_ranked_search.py
 │   │   ├── test_resume.py
 │   │   ├── test_shixiseng_adapter.py
 │   │   ├── test_storage.py
@@ -253,7 +257,7 @@ JobPilot/
 | app/services/analysis_service.py | 结构化 JD 和原文引用校验 |
 | app/services/matching_service.py | 明确技能匹配、部分具备与缺失证据 |
 | app/services/greeting_service.py | 用真实证据编号组织草稿 |
-| app/services/resume_service.py、app/web/resume.js | 简历正文提取、人工确认和逐字引用校验 |
+| app/services/resume_service.py、app/web/resume.js | 简历正文提取、AI 整理和逐字引用校验 |
 | app/services/action_service.py | 批准消费、未知结果和人工核查 |
 | app/adapters | 平台差异留在数据入口，Mock 保留离线能力 |
 | app/browser | 集中选择器、可信 URL、沙箱、资料锁与人工登录 |
@@ -301,3 +305,5 @@ JobPilot/
 讲解时要说明 DeepSeek 已完成少量真实岗位和合成样本验收，但样本很小；平台发送和 Docker 尚未验收，不能把设计能力或小样本测试包装成生产结果。
 
 本机 DeepSeek 设置入口：app/services/model_settings.py 负责安全保存与测试，app/web/settings.js 负责中文页面交互。个人资料表单仍复用 resume_service.py，不增加新的匹配架构。
+
+新页面学习顺序：models/search.py 的输入/输出 → resume_service.analyze_resume 的原文校验 → ranking_service 的软条件与分项分数 → graph 的 extract_profile、rank、refine 节点 → web。分页统一在 ReadonlyBrowserAdapter.search_pages；选择器仍集中在 browser/selectors.py。

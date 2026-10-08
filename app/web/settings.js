@@ -1,14 +1,13 @@
 /* 本机连接码只用于本机页面会话；DeepSeek 密钥不写入浏览器存储。 */
 let modelConfigured=false;
 function updateModeHint() {
-  const offline=byId("mode").value==="offline";
-  byId("mode-hint").textContent=offline
-    ? "基础演示只识别少量常见技能，不调用 AI，也不代表完整匹配能力。"
-    : "AI 会读懂岗位说明。每个岗位单独分析，费用从你的 DeepSeek 账户扣除。";
-  byId("search-limit").disabled=byId("source").value==="mock";
-  byId("source-hint").textContent=byId("source").value==="nowcoder"
-    ? "牛客会使用上次登录的专用 Edge 窗口读取岗位，请等它自行关闭。登录失效或遇到验证时会暂停。当前只读取第一页，实际数量可能少于上限。"
-    : "搜索真实岗位需要一些时间。没有合适结果时，可以换个关键词。";
+  const source=byId("source").value;
+  byId("mode-hint").textContent=source==="mock"
+    ? "示例只用本机规则演示，不调用 AI、不收费。"
+    : "自动提炼简历并逐条比较，前 5 名再做详细分析；分数不是录用概率。";
+  byId("source-hint").textContent=source==="mock" ? "使用虚构岗位，可以放心练习。"
+    : "逐页搜索，每次最多读取 100 条、每个关键词最多 20 页；没搜完会明确提示。" + (source==="nowcoder"
+    ? "牛客会打开专用 Edge 窗口，请等待它自行关闭。登录失效或遇到验证会暂停。" : "");
 }
 function showModelStatus(status) {
   modelConfigured=status.configured;
@@ -23,14 +22,14 @@ async function connectLocal() {
   byId("connection-status").textContent="已连接本机";
   showModelStatus(status);
   byId("ai-settings").open=!status.configured;
-  if(status.configured)message("AI 设置已保存。填写个人情况后即可搜索，也可以先查看以前的搜索结果。");
+  if(status.configured)message("AI 设置已保存。粘贴简历并填写岗位意向后即可搜索，也可以先查看以前的搜索结果。");
   await refreshRuns();
 }
 byId("model-save").onclick=()=>guarded(async()=>{
   const key=byId("model-key").value.trim();
   if(!key)throw new Error("请先粘贴 DeepSeek 服务密钥。");
   const status=await (await api("/api/model-settings",{method:"POST",body:JSON.stringify({api_key:key})})).json();
-  byId("model-key").value=""; showModelStatus(status); byId("mode").value="live"; updateModeHint();
+  byId("model-key").value=""; showModelStatus(status); updateModeHint();
   byId("model-feedback").textContent="密钥已保存到本机。点击“测试连接”，确认 AI 能正常回答。";
   message("已保存 DeepSeek 设置，接着点击“测试连接”。");
 },byId("model-save"));
@@ -45,7 +44,6 @@ byId("model-test").onclick=()=>guarded(async()=>{
     byId("model-feedback").textContent=error.message; throw error;
   }
 },byId("model-test"));
-byId("mode").onchange=updateModeHint;
 byId("source").onchange=updateModeHint;
 // 启动器在地址片段中传入本机连接码；立即清掉地址，片段不会发给 HTTP 服务。
 const access=new URLSearchParams(location.hash.slice(1)).get("access");

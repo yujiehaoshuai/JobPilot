@@ -1,5 +1,6 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>JobPilot API</title><link rel="stylesheet" href="/static/style.css"></head>
 <body><main><h1>JobPilot API</h1><p>请求携带 <code>X-JobPilot-Token</code>。完整字段与 JSON Schema 见 <a href="/openapi.json">OpenAPI 定义</a>。</p>
+<section class="panel"><h2>简历搜索与排序</h2><p>POST /api/search：提交 text（简历正文）、intent（一次岗位意向）、cities、source 和 mode。available_days_per_week、internship_duration_months 可选，时间差距只影响分数。search_limit 默认 100，可设 1～200。此入口固定只读并自动完成提炼、评分及前五名复核；返回任务 id，继续用下方状态和恢复接口。真实模式会把正文交给已配置模型。</p></section>
 <section class="panel"><ul><li>GET /health：服务健康。</li><li>POST /api/runs：提交 candidate、source、mode、queries、transport、analysis_only、search_limit 创建任务。search_limit 可为 1～40 或 null；live 缺配置会在创建前拒绝。</li><li>GET /api/runs：任务列表。</li><li>GET /api/runs/{id}：持久状态与结果。</li><li>GET /api/runs/{id}/events：SSE 状态流。</li><li>POST /api/runs/{id}/resume：恢复任务，不代表批准。</li><li>GET /api/actions?run_id=…：待审批动作与全文。</li><li>POST /api/actions/{id}/decision：提交 digest 和 approve。</li><li>GET /api/applications：申请跟踪。</li><li>GET /api/metrics：本进程运行计数。</li><li>GET /api/evaluation/latest：最近一次评估报告。</li></ul></section>
 <p>POST /api/actions/{id}/resolve：人工核查后提交 digest、sent 和 note，记录未知发送结果；不会重发消息。工作流执行中拒绝修改。</p>
 <p>401：令牌无效；403：来源不符；409：状态冲突或尚未审批；422：资料格式错误；429：请求限流。</p><a href="/">返回工作台</a></main></body></html>

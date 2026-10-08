@@ -31,6 +31,12 @@ async function guarded(action, button) {
   finally { if (button) button.disabled = false; }
 }
 function showMatch(parent, match) {
+  if(match.score!==null && match.score!==undefined) {
+    parent.append(element("p",`${match.score} / 100 · 匹配参考分`,"score"));
+    const parts=element("details");parts.append(element("summary","分数是怎么算的？"));
+    for(const [label,value] of Object.entries(match.score_breakdown||{}))parts.append(element("p",`${label}：${value}`,"hint"));
+    parts.append(element("p","技能按必需项和加分项加权，学习中的技能算部分符合。分数用于本轮比较，不是录用概率。","hint"));parent.append(parts);
+  }
   for (const [key,label,style] of [["matched_skills","已具备",""],["partial_skills","学习中","partial"],["missing_skills","资料中未提到","missing"]]) {
     const line = element("div"); line.append(element("span",label+"：","hint"));
     for (const skill of match[key] || []) line.append(element("span",skill,"skill "+style));
@@ -41,6 +47,18 @@ function showMatch(parent, match) {
   for (const item of match.evidence || []) evidence.append(element("p",`${item.requirement}\n岗位引用：${item.jd_quote}\n我的经历：${item.candidate_evidence || "无"}`,"evidence"));
   parent.append(evidence);
   for (const risk of match.risks || []) parent.append(element("p",plainRisk(risk),"hint"));
+  for (const note of match.availability_notes || []) parent.append(element("p",note,"availability-note"));
+}
+function showReview(parent, review) {
+  if(!review)return;
+  const section=element("div",undefined,"review");section.append(element("strong","前几名的详细分析"));
+  for(const point of review.reasons||[]) {
+    section.append(element("p",`${point.requirement}：${point.reason}。`));
+    section.append(element("p",`岗位原句：${point.jd_quote}\n简历依据：${point.candidate_evidence||"原文未提供，不能视为已掌握"}`,"evidence"));
+  }
+  for(const quote of review.cautions||[])section.append(element("p",`需要留意的岗位原句：${quote}`,"hint"));
+  for(const question of review.questions||[])section.append(element("p",`建议向招聘方确认：${question}`,"hint"));
+  parent.append(section);
 }
 function showState(run) {
   byId("run-status").textContent = statusNames[run.status] || run.status;
@@ -48,9 +66,20 @@ function showState(run) {
   byId("run-detail").replaceChildren();
   const state = run.snapshot || {};
   const analysisOnly = state.analysis_only ?? run.input?.analysis_only ?? false;
-  const steps = analysisOnly ? ["寻找岗位", "按条件筛选", "逐条比较", "保存结果"] : ["搜索 / 过滤", "分析 / 匹配", "草稿 / 审批", "执行 / 跟踪"];
+  const steps = state.ranking || run.input?.ranking ? ["理解简历", "寻找岗位", "比较评分", "复核前几名"] : analysisOnly ? ["寻找岗位", "按条件筛选", "逐条比较", "保存结果"] : ["搜索 / 过滤", "分析 / 匹配", "草稿 / 审批", "执行 / 跟踪"];
   document.querySelector(".steps").replaceChildren(...steps.map(text => element("span", text)));
   if (state.candidate) byId("run-detail").append(element("p",`本次使用的资料：${state.candidate.name}`,"hint"));
+  if(state.ranking && state.candidate) {
+    const profile=element("details",undefined,"profile-extract");
+    profile.append(element("summary",`已从简历整理 ${state.candidate.skills.length} 项技能 · 查看原文依据`));
+    for(const skill of state.candidate.skills)profile.append(element("p",`${skill.skill}：${skill.evidence}`,"evidence"));
+    for(const quote of [...state.candidate.education,...state.candidate.projects,...state.candidate.experience])profile.append(element("p",quote,"hint"));
+    byId("run-detail").append(profile);
+  }
+  for(const warning of state.profile_warnings||[])byId("run-detail").append(element("p",warning,"hint"));
+  if(state.queries?.length)byId("run-detail").append(element("p",`本次搜索词：${state.queries.join("、")}`,"hint"));
+  if(state.search_coverage?.pages)byId("run-detail").append(element("p",`已读取 ${state.search_coverage.pages} 页；${state.search_coverage.complete?"本轮搜索词已到末页，不代表全站岗位。":"还有未覆盖的结果，原因见下方。"}`,"hint"));
+  if(state.review_count!==undefined)byId("run-detail").append(element("p",`靠前岗位详细复核：${state.review_index||0} / ${state.review_count}`,"hint"));
   if (state.discovery) {
     const count = state.discovery;
     byId("run-detail").append(element("p",`读取 ${count.received} 条，不符合条件 ${count.rejected} 条，重复 ${count.duplicates} 条，留下 ${count.retained} 条供比较。`,"hint"));
@@ -64,12 +93,17 @@ function showState(run) {
   const results = byId("results"); results.replaceChildren();
   const rows = [...(state.results || [])];
   if (state.match && Object.keys(state.match).length && state.jobs && state.index < state.jobs.length) rows.push({job:state.jobs[state.index],match:state.match,outcome:"分析中"});
-  for (const row of rows) {
+  if(state.ranking)rows.sort((a,b)=>(b.match.score??0)-(a.match.score??0));
+  const more=element("details");more.append(element("summary",`查看其余 ${Math.max(0,rows.length-5)} 条岗位`));
+  for (const [index,row] of rows.entries()) {
     const card = element("article",undefined,"result");
     card.append(element("h3",row.job.title), element("p",`${row.job.company} · ${row.job.city || "城市未注明"}`,"hint"));
     const link = element("a","查看岗位原页"); link.href=row.job.url; link.target="_blank"; link.rel="noopener noreferrer"; card.append(link);
-    showMatch(card,row.match); card.append(element("p",row.outcome === "MATCHED" ? "有技能匹配，仍需核对完整要求" : statusNames[row.outcome] || row.outcome,"hint")); results.append(card);
+    showMatch(card,row.match);showReview(card,row.deep_review);
+    card.append(element("p",row.outcome === "MATCHED" ? "有技能匹配，仍需核对完整要求" : statusNames[row.outcome] || row.outcome,"hint"));
+    if(state.ranking&&index>=5)more.append(card);else results.append(card);
   }
+  if(state.ranking&&rows.length>5)results.append(more);
   const emptyMessage = state.discovery?.received === 0 ? "没有搜索到岗位，可以换个关键词再试。" : "本轮没有通过规则筛选的岗位，请查看排除原因。";
   if (!rows.length) results.append(element("p",run.status === "COMPLETED" ? emptyMessage : "等待岗位分析","muted"));
   for (const row of state.rejected_jobs || []) {
@@ -82,7 +116,7 @@ async function refreshRuns() {
   const runs = await (await api("/api/runs")).json();
   byId("runs").replaceChildren();
   for (const run of runs.slice().reverse()) {
-    const button = element("button",`${statusNames[run.status]} · ${sourceNames[run.source] || run.source} · ${modeNames[run.mode] || run.mode}\n${run.input?.candidate?.name || "已保存的搜索"}`);
+    const button = element("button",`${statusNames[run.status]} · ${sourceNames[run.source] || run.source} · ${modeNames[run.mode] || run.mode}\n${run.snapshot?.candidate?.name || run.input?.candidate?.name || run.input?.resume_search?.intent || "已保存的搜索"}`);
     button.addEventListener("click",() => guarded(() => selectRun(run.id))); byId("runs").append(button);
   }
 }
@@ -112,7 +146,10 @@ async function watchRun(runId) {
       const run=await (await api(`/api/runs/${runId}`,{signal:controller.signal})).json();
       if(currentRun!==runId || controller.signal.aborted)return;
       showState(run); await refreshRuns();
-      if(["PAUSED","FAILED","COMPLETED"].includes(run.status))return;
+      if(["PAUSED","FAILED","COMPLETED"].includes(run.status)) {
+        if(run.status==="COMPLETED"&&byId("message").textContent.startsWith("正在理解简历"))message("搜索和比较已完成，优先看看排名靠前的岗位及时间差距提示。");
+        return;
+      }
       failures=0;
     } catch(error) {
       if(controller.signal.aborted || currentRun!==runId)return;
@@ -148,22 +185,18 @@ function plainRisk(text) {
 }
 byId("example").onclick=()=>guarded(async()=>{
   fillExample(await (await api("/api/candidate-example")).json());
-  byId("source").value="mock"; byId("mode").value="offline"; byId("query").value="";
-  updateModeHint(); message("示例已填进各个输入框。直接点击“帮我找岗位”，修改表单也会立即生效。");
+  message("示例已填好，点击“帮我找岗位”即可体验简历提炼、评分和排序。");
 },byId("example"));
 byId("search-form").onsubmit=event=>{
   event.preventDefault();
   void guarded(async()=>{
-    const profile=readProfileForm();
-    const query=byId("query").value.trim(),source=byId("source").value,mode=byId("mode").value;
-    const searchLimit=source==="mock" ? null : Number(byId("search-limit").value);
-    if(mode==="live"&&!modelConfigured) {
+    const body=readSearchForm();
+    if(body.mode==="live"&&!modelConfigured) {
       byId("ai-settings").open=true;byId("model-key").focus();
-      throw new Error("请先连接 DeepSeek，或者选择“基础演示”。");
+      throw new Error("请先连接 DeepSeek，或者选择免费的示例演示。");
     }
-    const candidate=await (await api("/api/resume/profile",{method:"POST",body:JSON.stringify(profile)})).json();
-    const result=await (await api("/api/runs",{method:"POST",body:JSON.stringify({candidate,queries:query?[query]:[],source,mode,analysis_only:true,search_limit:searchLimit})})).json();
-    message("正在按本次填写的资料找岗位，结果会陆续出现在右侧。"); await refreshRuns(); await selectRun(result.id);
+    const result=await (await api("/api/search",{method:"POST",body:JSON.stringify(body)})).json();
+    message("正在理解简历并寻找岗位，结果会陆续出现。");await refreshRuns();await selectRun(result.id);
   },byId("start"));
 };
 byId("refresh").onclick=()=>guarded(refreshRuns,byId("refresh"));
