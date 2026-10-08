@@ -49,69 +49,84 @@ def main():
                     expect(page.locator("#model-feedback")).to_contain_text("连接成功")
                 assert "synthetic-deepseek-private-key" not in page.evaluate("JSON.stringify({...sessionStorage,...localStorage})")
                 page.locator("#ai-settings summary").click()
-                # 先用虚构文本走简历整理表单，再继续原来的完整工作流回归。
-                page.locator("#resume-file").set_input_files({"name": "synthetic.txt", "mimeType": "text/plain",
-                    "buffer": "虚构同学\n在课程项目中使用 Python 编写测试。".encode("utf-8")})
+                # 示例必须填入可见表单，不能只保存在隐藏对象里。
+                page.locator("#example").click()
+                expect(page.locator("#resume-name")).to_have_value("演示候选人（虚构资料）")
                 expect(page.locator("#resume-text")).to_have_value(re.compile(".*Python.*", re.S))
-                page.locator("#resume-name").fill("虚构同学")
+                expect(page.locator(".resume-skill-name")).to_have_count(4)
+                expect(page.locator(".resume-skill-name").first).to_have_value("Python")
+                expect(page.locator("#resume-days")).to_have_value("4")
+                expect(page.locator("#resume-months")).to_have_value("6")
+                assert page.locator("#advanced, #profile, #token, #resume-confirm, #resume-build, #profile-apply").count() == 0
+                # 修改示例后立即提交，检查实际请求使用新值，而不是示例的旧副本。
+                captured = []
+                def inspect_start(route):
+                    if route.request.method != "POST":
+                        route.continue_()
+                        return
+                    captured.append(route.request.post_data_json)
+                    route.fulfill(status=409, json={"detail": "合成检查已收到当前表单"})
+                page.route("**/api/runs", inspect_start)
+                page.locator("#resume-name").fill("修改后的虚构同学")
+                page.locator("#resume-days").select_option("3")
+                page.locator("#resume-months").fill("4")
+                page.locator("#resume-cities").fill("成都，杭州")
+                page.locator(".resume-skill-level").first.select_option("learning")
+                page.locator("#source").select_option("shixiseng")
+                page.locator("#search-limit").select_option("20")
+                page.locator("#start").click()
+                expect(page.locator("#message")).to_contain_text("合成检查已收到当前表单")
+                current = captured[-1]
+                assert current["source"] == "shixiseng" and current["search_limit"] == 20
+                assert current["candidate"]["name"] == "修改后的虚构同学"
+                assert current["candidate"]["available_days_per_week"] == 3
+                assert current["candidate"]["internship_duration_months"] == 4
+                assert current["candidate"]["target_cities"] == ["成都", "杭州"]
+                assert current["candidate"]["skills"][0]["level"] == "learning"
+                assert current["analysis_only"] is True
+                # 全职下隐藏的实习时间不能继续影响请求。
+                page.locator("#resume-employment").select_option("full_time")
+                expect(page.locator("#availability")).to_be_hidden()
+                page.locator("#start").click()
+                page.wait_for_function("!document.getElementById('start').disabled")
+                assert captured[-1]["candidate"]["available_days_per_week"] is None
+                assert captured[-1]["candidate"]["internship_duration_months"] is None
+                page.unroute("**/api/runs", inspect_start)
+                # 再次载入示例会覆盖每个表单字段；一个按钮即可完成真实本地工作流。
+                page.locator("#example").click()
+                expect(page.locator("#resume-days")).to_have_value("4")
+                page.locator("#start").click()
+                expect(page.locator("#run-status")).to_have_text("已完成", timeout=20000)
+                expect(page.locator("#run-detail")).to_contain_text("演示候选人（虚构资料）")
+                assert page.locator("#results .result").count() > 0
+                assert page.locator("#actions, #approval-panel").count() == 0
+                # 文件只负责读取正文；填写技能后直接搜索，不再有“生成/确认资料”。
+                page.locator("#resume-file").set_input_files({"name": "synthetic.txt", "mimeType": "text/plain",
+                    "buffer": "虚构导入同学\n在课程项目中使用 Python 编写测试。".encode("utf-8")})
+                expect(page.locator("#resume-text")).to_have_value(re.compile(".*Python.*", re.S))
+                page.locator("#resume-name").fill("虚构导入同学")
                 page.get_by_label("技能名称", exact=True).fill("Python")
                 page.get_by_label("技能程度", exact=True).select_option("project_experience")
                 page.get_by_label("简历原文证据", exact=True).fill("在课程项目中使用 Python 编写测试。")
-                page.locator("#resume-confirm").check()
-                page.get_by_role("button", name="确认使用这份资料").click()
-                expect(page.locator("#profile")).to_have_value(re.compile(".*虚构同学.*", re.S))
-                Path("data").mkdir(exist_ok=True)
-                page.screenshot(path="data/resume-smoke.png", full_page=True)
-                page.get_by_role("button", name="先用虚构资料体验一下").click()
-                expect(page.locator("#profile")).to_have_value(re.compile(r'.*"skills".*', re.S))
-                # 截获一次实习僧提交，检查页面数量参数；此测试不访问真实平台。
-                captured = []
-                def inspect_start(route):
-                    captured.append(route.request.post_data_json)
-                    route.fulfill(status=409, json={"detail": "合成检查已收到搜索参数"})
-                page.route("**/api/runs", inspect_start)
-                page.locator("#source").select_option("shixiseng")
-                page.locator("#search-limit").select_option("20")
-                page.get_by_role("button", name="帮我找岗位").click()
-                expect(page.locator("#message")).to_contain_text("合成检查已收到搜索参数")
-                assert captured[0]["source"] == "shixiseng" and captured[0]["search_limit"] == 20
-                page.unroute("**/api/runs", inspect_start)
-                page.locator("#source").select_option("mock")
-                # 默认只匹配应直接结束，且页面不能出现待审批动作。
-                page.get_by_role("button", name="帮我找岗位").click()
+                page.locator("#resume-roles").fill("")
+                page.locator("#resume-cities").fill("")
+                page.locator("#resume-days").select_option("5")
+                page.locator("#start").click()
+                expect(page.locator("#run-detail")).to_contain_text("虚构导入同学", timeout=20000)
                 expect(page.locator("#run-status")).to_have_text("已完成", timeout=20000)
-                expect(page.locator("#run-detail")).to_contain_text("读取 20 条")
-                assert page.locator("#results .result").count() == 11
-                assert page.locator("#actions .action").count() == 0
-                # 保留旧审批流程回归，显式选择包含草稿的模式。
-                page.locator("#advanced summary").click()
-                page.locator("#analysis-only").uncheck()
-                page.locator("#advanced summary").click()
-                page.get_by_role("button", name="帮我找岗位").click()
-                page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
-                assert page.locator("#results").inner_text().find("已具备") >= 0
+                count_before = page.locator("#runs button").count()
+                page.get_by_label("简历原文证据", exact=True).fill("不存在的 Python 五年工作经历。")
+                page.locator("#start").click()
+                expect(page.locator("#message")).to_contain_text("技能证据不在简历原文")
+                assert page.locator("#runs button").count() == count_before
+                # 截图只含虚构资料；换回有效原句，避免把错误状态作为界面样例。
+                page.get_by_label("简历原文证据", exact=True).fill("在课程项目中使用 Python 编写测试。")
+                page.locator("#refresh").click()
                 Path("data").mkdir(exist_ok=True)
                 page.screenshot(path="data/dashboard-smoke.png", full_page=True)
-                page.get_by_role("button", name="拒绝本条").click()
-                page.locator('.action[data-status="REJECTED"]').wait_for(timeout=20000)
-                page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
-                page.get_by_role("button", name="批准本条（模拟）").click()
-                page.locator('.action[data-status="SUCCEEDED"]').wait_for(timeout=20000)
-                # 临时故障只作用于本脚本的模拟执行器，验证人工核查表单的完整路径。
-                page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
-                with patch("app.services.action_service.MockActionExecutor.send", side_effect=TimeoutError("模拟超时")):
-                    page.get_by_role("button", name="批准本条（模拟）").click()
-                    pending = page.locator('.action[data-status="UNCERTAIN"]')
-                    pending.wait_for(timeout=20000)
-                action_id = pending.get_attribute("data-action-id")
-                pending.get_by_label("发送结果核查依据").fill("模拟人工核对平台记录未发送")
-                pending.get_by_role("button", name="确认未发送，结束此动作").click()
-                page.locator(f'.action[data-action-id="{action_id}"][data-status="REJECTED"]').wait_for(timeout=20000)
-                page.locator("#resume").click()
-                page.get_by_role("button", name="批准本条（模拟）").wait_for(timeout=20000)
                 assert not errors, errors
                 browser.close()
-                print("Dashboard auto-connect / DeepSeek settings / evidence / readonly / approval / recovery: OK")
+                print("Dashboard example prefill / current form / availability / one-button search / evidence: OK")
         finally:
             server.should_exit = True
             thread.join(timeout=15)

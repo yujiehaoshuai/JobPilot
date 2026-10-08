@@ -16,14 +16,13 @@ function showModelStatus(status) {
 async function connectLocal() {
   const status=await (await api("/api/model-settings")).json();
   // 页面刷新后可继续使用；不把密钥放入地址查询参数、日志或持久的 localStorage。
-  try {sessionStorage.setItem("jobpilot-connection",byId("token").value.trim());} catch {}
+  try {sessionStorage.setItem("jobpilot-connection",localAccess);} catch {}
   byId("connection-status").textContent="已连接本机";
   showModelStatus(status);
   byId("ai-settings").open=!status.configured;
   if(status.configured)message("AI 设置已保存。填写个人情况后即可搜索，也可以先查看以前的搜索结果。");
   await refreshRuns();
 }
-byId("connect").onclick=()=>guarded(connectLocal,byId("connect"));
 byId("model-save").onclick=()=>guarded(async()=>{
   const key=byId("model-key").value.trim();
   if(!key)throw new Error("请先粘贴 DeepSeek 服务密钥。");
@@ -48,9 +47,9 @@ byId("source").onchange=updateModeHint;
 // 启动器在地址片段中传入本机连接码；立即清掉地址，片段不会发给 HTTP 服务。
 const access=new URLSearchParams(location.hash.slice(1)).get("access");
 if(access)history.replaceState(null,"",location.pathname+location.search);
-try {byId("token").value=access || sessionStorage.getItem("jobpilot-connection") || "";} catch {byId("token").value=access || "";}
+try {localAccess=access || sessionStorage.getItem("jobpilot-connection") || "";} catch {localAccess=access || "";}
 updateModeHint();
-if(byId("token").value)void guarded(connectLocal);
+if(localAccess)void guarded(connectLocal);
 else {
   byId("connection-status").textContent="尚未连接本机";
   message("请双击项目文件夹中的 start.cmd，它会自动打开并连接这个页面。",true);

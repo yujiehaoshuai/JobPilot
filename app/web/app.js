@@ -1,7 +1,7 @@
 /* 只用原生 DOM；岗位、简历和模型内容都按文本显示，不能成为网页代码。 */
 const byId = id => document.getElementById(id);
 let currentRun = null;
-let preparedCandidate = null;
+let localAccess = "";
 const sourceNames = {mock:"示例岗位",shixiseng:"实习僧",boss:"BOSS 直聘",nowcoder:"牛客"};
 const modeNames = {offline:"基础演示，未调用 AI",live:"AI 分析"};
 let streamController = null;
@@ -17,8 +17,8 @@ function message(text, error=false) {
   byId("message").className = error ? "error" : "";
 }
 async function api(path, options={}) {
-  if (!byId("token").value.trim()) throw new Error("尚未连接本机程序，请双击 start.cmd 打开页面。");
-  const response = await fetch(path, {...options, headers:{"X-JobPilot-Token":byId("token").value.trim(),"Content-Type":"application/json",...(options.headers||{})}});
+  if (!localAccess) throw new Error("尚未连接本机程序，请双击 start.cmd 打开页面。");
+  const response = await fetch(path, {...options, headers:{"X-JobPilot-Token":localAccess,"Content-Type":"application/json",...(options.headers||{})}});
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(typeof body.detail === "string" ? body.detail : `操作未完成（${response.status}），请检查填写内容后重试。`);
@@ -48,7 +48,6 @@ function showState(run) {
   byId("run-detail").replaceChildren();
   const state = run.snapshot || {};
   const analysisOnly = state.analysis_only ?? run.input?.analysis_only ?? false;
-  byId("approval-panel").hidden = analysisOnly;
   const steps = analysisOnly ? ["寻找岗位", "按条件筛选", "逐条比较", "保存结果"] : ["搜索 / 过滤", "分析 / 匹配", "草稿 / 审批", "执行 / 跟踪"];
   document.querySelector(".steps").replaceChildren(...steps.map(text => element("span", text)));
   if (state.candidate) byId("run-detail").append(element("p",`本次使用的资料：${state.candidate.name}`,"hint"));
@@ -61,7 +60,7 @@ function showState(run) {
   if (run.error) byId("run-detail").append(element("p",run.error));
   for (const warning of state.source_warnings || []) byId("run-detail").append(element("p",warning,"hint"));
   for (const item of run.interrupts || []) if (["browser","action_recovery"].includes(item.kind)) byId("run-detail").append(element("p",item.message));
-  byId("resume").hidden = !["PAUSED","FAILED","RUNNING"].includes(run.status);
+  byId("resume").hidden = !["PAUSED","FAILED","RUNNING"].includes(run.status) || (run.interrupts||[]).some(item=>item.kind==="approval");
   const results = byId("results"); results.replaceChildren();
   const rows = [...(state.results || [])];
   if (state.match && Object.keys(state.match).length && state.jobs && state.index < state.jobs.length) rows.push({job:state.jobs[state.index],match:state.match,outcome:"分析中"});
@@ -78,51 +77,6 @@ function showState(run) {
     for (const reason of row.reasons) detail.append(element("p",plainReason(reason),"hint"));
     results.append(detail);
   }
-}
-async function showActions() {
-  const runId = currentRun;
-  const actions = await (await api(`/api/actions?run_id=${encodeURIComponent(runId)}`)).json();
-  if (runId !== currentRun) return;
-  const container = byId("actions"); container.replaceChildren();
-  for (const action of actions) {
-    const p = action.payload; const card = element("article",undefined,"action");
-    card.dataset.actionId=action.id; card.dataset.status=action.status;
-    card.append(element("span",`${p.simulated ? "模拟动作" : "真实平台动作"} · ${statusNames[action.status]}`,"badge"),element("h3",p.job.title),element("p",`${p.job.company} · ${p.job.source} · 候选人：${p.candidate.name}`,"hint"));
-    const link = element("a","查看岗位原页"); link.href=p.job.url; link.target="_blank"; link.rel="noopener noreferrer"; card.append(link);
-    card.append(element("p",p.content,"draft"),element("p","审批摘要："+action.digest,"digest"));
-    if (action.receipt) card.append(element("p",action.receipt,"digest"));
-    if (["EXECUTING","UNCERTAIN"].includes(action.status)) {
-      card.append(element("p","请先在平台人工核查此消息。若任务仍在执行，系统会拒绝修改结果。","hint"));
-      const note = element("textarea"); note.placeholder="填写核查依据，例如收件人、时间及平台显示的结果（至少五个字）";
-      note.maxLength=1000; note.setAttribute("aria-label","发送结果核查依据"); card.append(note);
-      const controls = element("div",undefined,"row");
-      for (const sent of [true,false]) {
-        const button = element("button",sent ? "已人工确认送达" : "确认未发送，结束此动作","secondary");
-        button.addEventListener("click",()=>guarded(async()=>{
-          if(note.value.trim().length<5)throw new Error("请先填写至少五个字的核查依据。");
-          await api(`/api/actions/${action.id}/resolve`,{method:"POST",body:JSON.stringify({digest:action.digest,sent,note:note.value.trim()})});
-          message("已保存人工核查结果，没有重新发送。可以恢复任务。"); await selectRun(action.run_id);
-        },button)); controls.append(button);
-      }
-      card.append(controls);
-    }
-    if (action.status === "PENDING") {
-      const controls = element("div",undefined,"row");
-      for (const approve of [true,false]) {
-        const button = element("button",approve ? (p.simulated ? "批准本条（模拟）" : "批准此全文并执行") : "拒绝本条",approve ? "" : "reject");
-        button.addEventListener("click",() => guarded(async () => {
-          for (const control of controls.querySelectorAll("button")) control.disabled=true;
-          await api(`/api/actions/${action.id}/decision`,{method:"POST",body:JSON.stringify({digest:action.digest,approve})});
-          await api(`/api/runs/${action.run_id}/resume`,{method:"POST"});
-          message(approve ? "已批准本条，任务将继续。" : "已拒绝本条，继续分析下一岗位。");
-          await selectRun(action.run_id);
-        },button)); controls.append(button);
-      }
-      card.append(controls);
-    }
-    container.append(card);
-  }
-  if (!actions.length) container.append(element("p","暂无待审草稿。未批准的消息不会发送。","empty"));
 }
 async function refreshRuns() {
   const runs = await (await api("/api/runs")).json();
@@ -150,14 +104,14 @@ async function watchRun(runId) {
           const block=buffer.slice(0,position); buffer=buffer.slice(position+2);
           const line=block.split("\n").find(item=>item.startsWith("data: "));
           if(line && currentRun===runId && !controller.signal.aborted) {
-            showState(JSON.parse(line.slice(6))); await showActions();
+            showState(JSON.parse(line.slice(6)));
           }
         }
       }
       if(currentRun!==runId || controller.signal.aborted)return;
       const run=await (await api(`/api/runs/${runId}`,{signal:controller.signal})).json();
       if(currentRun!==runId || controller.signal.aborted)return;
-      showState(run); await showActions(); await refreshRuns();
+      showState(run); await refreshRuns();
       if(["PAUSED","FAILED","COMPLETED"].includes(run.status))return;
       failures=0;
     } catch(error) {
@@ -174,19 +128,8 @@ async function selectRun(runId) {
   if(streamController)streamController.abort();
   const run=await (await api(`/api/runs/${runId}`)).json();
   if(currentRun!==runId)return;
-  showState(run); await showActions();
+  showState(run);
   if(currentRun===runId)void watchRun(runId);
-}
-function useCandidate(candidate, example=false) {
-  if (!candidate || typeof candidate !== "object" || !candidate.name || !Array.isArray(candidate.skills)) throw new Error("资料不完整，请重新填写个人情况。");
-  preparedCandidate=candidate;
-  byId("profile").value=JSON.stringify(candidate,null,2);
-  byId("profile-summary").textContent=`${example ? "虚构示例，不能当成你的真实经历：" : "已准备好："}${candidate.name} · ${candidate.skills.map(item=>item.skill).join("、") || "尚无技能"}`;
-  byId("resume-builder").open=false;
-}
-function invalidateCandidate() {
-  preparedCandidate=null;
-  byId("profile-summary").textContent="资料已修改，请核对后点击“确认使用这份资料”。";
 }
 function plainReason(text) {
   const exact={"Empty job description":"岗位没有提供完整说明", "Title does not contain a target role or preferred keyword":"岗位名称不包含你填写的岗位方向或偏好关键词"};
@@ -204,34 +147,24 @@ function plainRisk(text) {
   return text;
 }
 byId("example").onclick=()=>guarded(async()=>{
-  useCandidate(await (await api("/api/candidate-example")).json(),true);
+  fillExample(await (await api("/api/candidate-example")).json());
   byId("source").value="mock"; byId("mode").value="offline"; byId("query").value="";
-  byId("analysis-only").checked=true; updateModeHint();
-  message("已准备好虚构资料和示例岗位。点击“帮我找岗位”体验；不会调用 AI 或发送消息。");
+  updateModeHint(); message("示例已填进各个输入框。直接点击“帮我找岗位”，修改表单也会立即生效。");
 },byId("example"));
-byId("profile-file").onchange=event=>guarded(async()=>{
-  const file=event.target.files[0]; if(!file)return;
-  if(file.size>500000)throw new Error("资料文件过大");
-  byId("profile").value=await file.text(); invalidateCandidate();
-  message("已读取资料文件，请核对内容后点击“确认使用导入的资料”。");
-});
-byId("profile").oninput=invalidateCandidate;
-byId("profile-apply").onclick=()=>guarded(async()=>{
-  let candidate;
-  try {candidate=JSON.parse(byId("profile").value);}catch {throw new Error("资料文件格式不正确，请使用上方个人资料表单填写。");}
-  useCandidate(candidate);message("已确认使用导入的资料。");
-});
-byId("start").onclick=()=>guarded(async()=>{
-  if(!preparedCandidate)throw new Error("请先完成第 1 步，核对经历并点击“确认使用这份资料”。");
-  if(byId("mode").value==="live" && !modelConfigured) {
-    byId("ai-settings").open=true;byId("model-key").focus();
-    throw new Error("请先在“连接 DeepSeek”里保存密钥并测试连接，或选择“基础演示”。");
-  }
-  const query=byId("query").value.trim(); const analysisOnly=byId("analysis-only").checked;
-  const source=byId("source").value;
-  const searchLimit=source === "shixiseng" ? Number(byId("search-limit").value) : null;
-  const result=await (await api("/api/runs",{method:"POST",body:JSON.stringify({candidate:preparedCandidate,queries:query?[query]:[],source,mode:byId("mode").value,analysis_only:analysisOnly,search_limit:searchLimit})})).json();
-  message(analysisOnly ? "正在帮你找岗位，结果会陆续出现在右侧。" : "正在分析岗位。生成的草稿会等你逐条审核。"); await refreshRuns(); await selectRun(result.id);
-},byId("start"));
+byId("search-form").onsubmit=event=>{
+  event.preventDefault();
+  void guarded(async()=>{
+    const profile=readProfileForm();
+    const query=byId("query").value.trim(),source=byId("source").value,mode=byId("mode").value;
+    const searchLimit=source==="mock" ? null : Number(byId("search-limit").value);
+    if(mode==="live"&&!modelConfigured) {
+      byId("ai-settings").open=true;byId("model-key").focus();
+      throw new Error("请先连接 DeepSeek，或者选择“基础演示”。");
+    }
+    const candidate=await (await api("/api/resume/profile",{method:"POST",body:JSON.stringify(profile)})).json();
+    const result=await (await api("/api/runs",{method:"POST",body:JSON.stringify({candidate,queries:query?[query]:[],source,mode,analysis_only:true,search_limit:searchLimit})})).json();
+    message("正在按本次填写的资料找岗位，结果会陆续出现在右侧。"); await refreshRuns(); await selectRun(result.id);
+  },byId("start"));
+};
 byId("refresh").onclick=()=>guarded(refreshRuns,byId("refresh"));
 byId("resume").onclick=()=>guarded(async()=>{await api(`/api/runs/${currentRun}/resume`,{method:"POST"}); await selectRun(currentRun);},byId("resume"));

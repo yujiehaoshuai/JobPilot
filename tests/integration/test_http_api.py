@@ -19,6 +19,9 @@ def test_api_auth_and_origin(tmp_path):
     with TestClient(create_app(tmp_path, token="test-token")) as client:
         assert client.get("/health").status_code == 200
         assert client.get("/api/runs").status_code == 401
+        assert client.get("/api/instance").status_code == 401
+        assert client.get("/api/instance", headers={"X-JobPilot-Token": "test-token"}).json() == {
+            "service": "JobPilot", "data_directory": str(tmp_path.resolve())}
         assert client.get("/api/runs", headers={"X-JobPilot-Token": "test-token", "Origin": "https://evil.test"}).status_code == 403
 
 

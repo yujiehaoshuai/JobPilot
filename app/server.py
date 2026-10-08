@@ -6,7 +6,32 @@ from pathlib import Path
 import threading
 import time
 import webbrowser
+import json
 from urllib.parse import urlencode
+from urllib.request import Request, build_opener
+from urllib.error import URLError, HTTPError
+
+
+def open_existing_server(url: str, data_dir: Path, token: str) -> bool:
+    """同一资料目录的服务已运行时直接打开它，不要求用户复制连接码。"""
+    from app.llm.client import NoRedirect
+    from app.exceptions import ConfigurationError
+    try:
+        request = Request(url + "/api/instance", headers={"X-JobPilot-Token": token})
+        with build_opener(NoRedirect).open(request, timeout=2) as response:
+            value = json.loads(response.read(4096))
+    except HTTPError:
+        raise ConfigurationError("这个端口已有其他服务或旧版程序，请关闭旧程序，或使用 --port 8001 启动") from None
+    except (URLError, TimeoutError):
+        return False
+    except (ValueError, UnicodeError):
+        raise ConfigurationError("这个端口不是可连接的 JobPilot 服务，请换一个端口") from None
+    if not isinstance(value, dict) or not isinstance(value.get("data_directory"), str):
+        raise ConfigurationError("这个端口不是可连接的 JobPilot 服务，请换一个端口")
+    if value.get("service") != "JobPilot" or Path(value["data_directory"]).resolve() != data_dir.resolve():
+        raise ConfigurationError("这个端口正在使用另一份数据目录，请使用 --port 8001")
+    webbrowser.open(url + "/#" + urlencode({"access": token}))
+    return True
 
 
 def open_when_ready(server, url: str, token: str) -> None:
@@ -35,6 +60,14 @@ def main():
     data_dir.mkdir(parents=True, exist_ok=True)
     token = local_token(data_dir)
     url = f"http://127.0.0.1:{args.port}"
+    if args.open_browser:
+        from app.exceptions import ConfigurationError
+        try:
+            if open_existing_server(url, data_dir, token):
+                print("程序已经在运行，已为你重新打开页面。")
+                return
+        except ConfigurationError as exc:
+            parser.error(str(exc))
     print(f"JobPilot 求职助手：{url}")
     from app.llm.client import create_llm
     from app.exceptions import ConfigurationError

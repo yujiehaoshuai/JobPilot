@@ -19,8 +19,7 @@ def docx_bytes(xml):
 
 def request(**updates):
     values = dict(text="虚构同学\n在课程项目中使用 Python 编写测试。", name="虚构同学",
-                  skills=[dict(skill="Python", level="project_experience", quote="在课程项目中使用 Python 编写测试。")],
-                  confirmed=True)
+                  skills=[dict(skill="Python", level="project_experience", quote="在课程项目中使用 Python 编写测试。")])
     values.update(updates)
     return ResumeProfileRequest(**values)
 
@@ -48,13 +47,11 @@ def test_docx_rejects_xml_entities_and_oversized_content():
             extract_resume(docx_bytes(xml), "docx")
 
 
-def test_profile_uses_confirmed_quote_without_inventing_other_fields():
+def test_profile_uses_current_quote_without_inventing_other_fields():
     candidate = build_candidate(request())
     assert candidate.skills[0].evidence == "在课程项目中使用 Python 编写测试。"
     assert candidate.education == candidate.projects == candidate.experience == []
     assert candidate.available_days_per_week is None
-    with pytest.raises(ValidationError):
-        request(confirmed=False)
 
 
 @pytest.mark.parametrize("skill, quote", [("Python", "在大厂工作五年，精通 Python。"),
@@ -71,3 +68,23 @@ def test_duplicate_skills_require_user_to_consolidate():
     body.skills.append(body.skills[0])
     with pytest.raises(ValueError, match="重复"):
         build_candidate(body)
+
+
+def test_availability_and_employment_are_taken_from_current_input(make_job):
+    """改动天数或月份会直接改变筛选结果，不需要另一份确认资料。"""
+    from app.services.filter_service import RuleFilter
+    job = make_job(employment_type="internship", required_days_per_week=4, internship_duration_months=6)
+    first = build_candidate(request(employment_type="internship", available_days_per_week=3,
+                                    internship_duration_months=3))
+    second = build_candidate(request(employment_type="internship", available_days_per_week=5,
+                                     internship_duration_months=6))
+    assert len(RuleFilter().evaluate(first, job).reasons) == 2
+    assert RuleFilter().evaluate(second, job).passed
+    assert second.available_days_per_week == 5 and second.internship_duration_months == 6
+
+
+@pytest.mark.parametrize("updates", [{"available_days_per_week":0}, {"available_days_per_week":8},
+    {"available_days_per_week":True}, {"internship_duration_months":0}, {"internship_duration_months":121}])
+def test_invalid_availability_is_rejected(updates):
+    with pytest.raises(ValidationError):
+        request(**updates)

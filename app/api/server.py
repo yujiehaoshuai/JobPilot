@@ -150,6 +150,11 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     def example():
         return json.loads((PROJECT_ROOT / "fixtures/candidate.example.json").read_text("utf-8-sig"))
 
+    @app.get("/api/instance", dependencies=auth)
+    def instance():
+        """供本机启动器确认数据目录，重复双击时打开原服务而不是再启动一份。"""
+        return {"service": "JobPilot", "data_directory": str(data_dir.resolve())}
+
     @app.get("/api/model-settings", dependencies=auth)
     def model_configuration():
         return model_settings.model_status()

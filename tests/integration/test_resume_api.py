@@ -13,10 +13,12 @@ def test_resume_import_build_and_workflow(tmp_path):
         client.headers["X-JobPilot-Token"] = "t"
         response = client.post(path, content=content.encode())
         assert response.status_code == 200 and response.json()["text"] == content
-        body = dict(text=content, name="虚构同学", confirmed=True, skills=[dict(
+        body = dict(text=content, name="虚构同学", available_days_per_week=4, internship_duration_months=6, skills=[dict(
             skill="Python", level="project_experience", quote="在课程项目中使用 Python 编写测试。")])
         candidate = client.post("/api/resume/profile", json=body)
         assert candidate.status_code == 200
+        assert candidate.json()["available_days_per_week"] == 4
+        assert candidate.json()["internship_duration_months"] == 6
         assert client.get("/api/runs").json() == []
         # 只有显式开始任务才持久化确认后的资料；上传和整理本身不启动任务。
         run = client.post("/api/runs", json={"candidate": candidate.json()})

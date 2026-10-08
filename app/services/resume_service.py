@@ -72,7 +72,7 @@ def extract_docx(data: bytes) -> str:
 
 
 def build_candidate(request: ResumeProfileRequest) -> CandidateProfile:
-    """核对每条原文后生成新资料；级别由用户确认，不从语句自动推断。"""
+    """核对每条原文后生成资料；级别和可用时间直接取自本次表单。"""
     skills = []
     seen = set()
     for item in request.skills:
@@ -87,4 +87,7 @@ def build_candidate(request: ResumeProfileRequest) -> CandidateProfile:
         seen.add(item.skill.casefold())
         skills.append(CandidateSkill(skill=item.skill, level=item.level, evidence=item.quote))
     return CandidateProfile(id=str(uuid4()), name=request.name, skills=skills,
-                            target_roles=request.target_roles, target_cities=request.target_cities)
+                            target_roles=request.target_roles, target_cities=request.target_cities,
+                            employment_type=request.employment_type,
+                            available_days_per_week=request.available_days_per_week,
+                            internship_duration_months=request.internship_duration_months)
