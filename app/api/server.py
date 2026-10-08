@@ -111,6 +111,8 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
             raise HTTPException(429, "请求过于频繁，请稍后重试", headers={"Retry-After": "1"})
 
     auth = [Depends(authenticated)]
+    from app.api.boss_bridge import install_boss_routes
+    install_boss_routes(app, data_dir, runs, worker, auth)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_input(request, exc):
@@ -228,10 +230,12 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.post("/api/runs/{run_id}/resume", status_code=202, dependencies=auth)
     def resume(run_id: str):
         value = runs.get(run_id)
-        if value["status"] == "COMPLETED":
+        if value["status"] == "COMPLETED" and not value.get("interrupts"):
             raise HTTPException(409, "任务已完成")
         if any(action.status == "PENDING" for action in actions.list(run_id)):
             raise HTTPException(409, "请先处理当前审批")
+        if value["source"] == "boss":
+            app.state.boss_bridge.resume(run_id)
         worker.submit(run_id)
         return {"id": run_id}
 

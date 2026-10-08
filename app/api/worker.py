@@ -47,7 +47,8 @@ class WorkflowWorker:
         try:
             with open_graph(self.data_dir, source=data["source"], mode=data["mode"],
                             database_url=self.database_url, transport=data.get("transport", "direct"),
-                            search_limit=data["input"].get("search_limit")) as (graph, actions):
+                            search_limit=data["input"].get("search_limit"), run_id=run_id,
+                            cities=data["input"].get("resume_search", {}).get("cities", [])) as (graph, actions):
                 config = graph_config(run_id)
                 state = graph.get_state(config)
                 if not state.values:
@@ -60,8 +61,10 @@ class WorkflowWorker:
                     self.runs.update(run_id, "RUNNING", snapshot=serializable)
                 state = graph.get_state(config)
                 interruptions = [i.value for t in state.tasks for i in t.interrupts]
-                status = "PAUSED" if state.next else "COMPLETED"
-                self.metrics["runs_paused" if state.next else "runs_completed"] += 1
+                # 同一节点再次 interrupt 时 next 可能为空；仍有中断就不能标记完成。
+                paused = bool(state.next or interruptions)
+                status = "PAUSED" if paused else "COMPLETED"
+                self.metrics["runs_paused" if paused else "runs_completed"] += 1
                 self.events.record("run_finished", run_id=run_id, status=status,
                                    elapsed_ms=(perf_counter() - start) * 1000)
                 self.runs.update(run_id, status, snapshot=state.values, interrupts=interruptions,

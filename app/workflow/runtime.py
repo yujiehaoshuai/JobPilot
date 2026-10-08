@@ -23,7 +23,7 @@ class UnverifiedPlatformExecutor:
 
 @contextmanager
 def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None, database_url=None,
-               transport="direct", search_limit: int | None = None):
+               transport="direct", search_limit: int | None = None, run_id=None, cities=None):
     """按来源选择公开 HTTP 或浏览器；Mock 默认运行完全离线。"""
     from contextlib import ExitStack
     # 在打开任何平台资源之前检查模型配置；缺配置不能留下半开的浏览器。
@@ -34,7 +34,13 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
         from app.reliability import workflow_lock
         stack.enter_context(workflow_lock(data_dir))
         if adapter is None:
-            if transport == "mcp":
+            if source == "boss" and run_id and transport == "direct":
+                from app.browser.bridge import BossBridge
+                from app.adapters.boss import BossExtensionAdapter
+                from app.tools.jobs import ToolCallingAdapter
+                adapter = ToolCallingAdapter(BossExtensionAdapter(BossBridge(data_dir), run_id,
+                                             search_limit or 100, cities), search_limit=search_limit)
+            elif transport == "mcp":
                 from app.mcp_client import MCPJobAdapter
                 adapter = MCPJobAdapter(source, search_limit=search_limit)
             elif transport == "direct":

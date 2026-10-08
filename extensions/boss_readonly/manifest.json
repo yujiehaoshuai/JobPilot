@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "JobPilot 只读采集实验",
-  "version": "0.1.0",
-  "description": "用普通标签页导航和隔离环境读取岗位，导出本地 JSON；没有沟通或投递功能。",
+  "name": "JobPilot BOSS 岗位助手",
+  "version": "0.2.0",
+  "description": "在普通浏览器读取 BOSS 岗位，交给本机 JobPilot 匹配；不沟通、不投递。",
   "permissions": ["tabs", "scripting"],
-  "host_permissions": ["https://www.zhipin.com/*", "https://zhipin.com/*", "https://example.com/*"],
+  "host_permissions": ["https://www.zhipin.com/*", "https://zhipin.com/*", "https://example.com/*", "http://127.0.0.1/*"],
+  "content_scripts": [{"matches": ["http://127.0.0.1/*"], "js": ["connect.js"], "run_at": "document_idle"}],
   "background": {"service_worker": "background.js"},
-  "action": {"default_title": "打开 JobPilot 只读实验面板"}
+  "action": {"default_title": "打开 JobPilot BOSS 岗位助手"}
 }

@@ -146,6 +146,17 @@ async function watchRun(runId) {
       const run=await (await api(`/api/runs/${runId}`,{signal:controller.signal})).json();
       if(currentRun!==runId || controller.signal.aborted)return;
       showState(run); await refreshRuns();
+      if(run.status==="PAUSED" && run.source==="boss" && run.input?.analysis_only) {
+        const bridge=await(await api(`/api/boss/status?run_id=${runId}`,{signal:controller.signal})).json();
+        const task=bridge.task;
+        if(task) {
+          byId("run-status").textContent=task.status==="paused"?"等待你处理 BOSS 页面":task.status==="ready"?"准备开始匹配":"浏览器正在读取岗位";
+          byId("run-detail").append(element("p",`${task.message} · 已处理 ${task.attempted.length} 条、读取 ${task.pages} 页`,"hint"));
+          if(!bridge.connected)byId("run-detail").append(element("p","BOSS 助手暂未连接，请保持助手页面打开，或点击左侧“连接 BOSS 助手”。","hint"));
+        }
+        // 等待浏览器属于可恢复的只读阶段；轮询状态以便自动展示后续 AI 结果。
+        await new Promise(resolve=>setTimeout(resolve,2500));continue;
+      }
       if(["PAUSED","FAILED","COMPLETED"].includes(run.status)) {
         if(run.status==="COMPLETED"&&byId("message").textContent.startsWith("正在理解简历"))message("搜索和比较已完成，优先看看排名靠前的岗位及时间差距提示。");
         return;
@@ -195,6 +206,7 @@ byId("search-form").onsubmit=event=>{
       byId("ai-settings").open=true;byId("model-key").focus();
       throw new Error("请先连接 DeepSeek，或者选择免费的示例演示。");
     }
+    if(body.source==="boss")await ensureBossConnected();
     const result=await (await api("/api/search",{method:"POST",body:JSON.stringify(body)})).json();
     message("正在理解简历并寻找岗位，结果会陆续出现。");await refreshRuns();await selectRun(result.id);
   },byId("start"));

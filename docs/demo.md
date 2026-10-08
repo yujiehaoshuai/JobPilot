@@ -29,7 +29,7 @@ Windows 双击 `start.cmd`，会自动打开浏览器并连接本机程序，不
 
 1. 体验：点“先用虚构资料体验一下”，再点“帮我找岗位”，无需密钥。
 2. 正式使用：在左侧底部“连接 DeepSeek”保存一次密钥并测试；已经设置的无需重复填写。
-3. 粘贴简历全文，只填一次岗位意向；选填城市和到岗时间，选择实习僧或牛客。
+3. 粘贴简历全文，只填一次岗位意向；选填城市和到岗时间，选择实习僧、牛客或 BOSS。
 4. 点击“帮我找岗位”，AI 自动提炼简历、扩展搜索词、读取岗位、比较评分，对前 5 名再次复核。
 5. 查看右侧原文依据、分数、时间差距和详细理由；其余岗位可展开。点击以前的搜索只读取本地结果，不再次调用模型。
 
@@ -76,9 +76,9 @@ Windows 双击 `start.cmd`，会自动打开浏览器并连接本机程序，不
 .\.venv\Scripts\python.exe -m app.workflow_cli start --source mock --mode offline
 # 通过真实 MCP 子进程读取同一套离线岗位
 .\.venv\Scripts\python.exe -m app.workflow_cli start --source mock --mode offline --transport mcp
-# BOSS 普通 Edge 人工登录：本人登录，关闭窗口，再在终端按回车
+# 以下 BOSS 命令仅保留旧 Playwright 诊断；新日常搜索使用页面中的浏览器助手
 .\.venv\Scripts\python.exe -m app.browser_cli login --source boss --manual
-# 登录验收只读取一条岗位，不发起沟通
+# 旧控制路径可能再次 blank，不能用它验收新扩展
 .\.venv\Scripts\python.exe -m app.browser_cli search --source boss --query Python --limit 1
 # 牛客同样使用独立平台资料目录
 .\.venv\Scripts\python.exe -m app.browser_cli login --source nowcoder --manual
@@ -87,6 +87,14 @@ Windows 双击 `start.cmd`，会自动打开浏览器并连接本机程序，不
 工作流 CLI 用 `status --id RUN_ID` 或 `resume --id RUN_ID`，保持原任务的 source、mode、transport、limit 和 data 参数。未设置 AGENT_DATABASE_URL 时，CLI 使用 `data/agent/actions.db`、tracker.db、checkpoints.db；早期独立 approval_cli 默认是 `data/actions.db`，查看工作流动作必须指定 `--database data/agent/actions.db`。Dashboard 默认使用新的 `data/agent/agent.db`。不要把这几种历史入口的数据库混用。
 
 设置 AGENT_DATABASE_URL 可使用关系后端；PostgreSQL 先运行 `python -m app.db_cli upgrade`。迁移不自动搬迁旧数据库。SQLite 旧表只有与已知 0001 布局一致才可补记版本。
+
+## BOSS 普通浏览器助手
+
+按 [助手说明](../extensions/boss_readonly/README.md) 加载或更新扩展，再在 JobPilot 选 BOSS，点击“连接 BOSS 助手”。不需要关闭正常浏览器或切换专用资料目录；使用当前普通浏览器的登录状态，保持助手页打开。搜索词来自 AI 提炼，读取完成后自动恢复匹配。
+
+遇到登录或验证由本人处理，再点助手中的继续。页面刷新和服务重启不会删除已回传岗位；模型失败从原检查点恢复，不重新分析简历。默认 100 条详情，每词最多 20 页；重复页、找不到下一页或达到上限均明确标记未覆盖。城市由后端严格筛选，网站搜索范围仍取决于 BOSS 当前城市条件。
+
+这条桥接只接入本机 Dashboard/API 的普通工具调用，不改变已有 MCP 协议，不把它称为 MCP。真实发消息和投递尚未启用。
 
 ## 牛客登录与只读搜索
 

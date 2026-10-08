@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobPilot · 找适合你的工作</title><link rel="stylesheet" href="/static/style.css">
-<script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script><script src="/static/settings.js" defer></script></head>
+<script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script><script src="/static/boss.js" defer></script><script src="/static/settings.js" defer></script></head>
 <body>
 <header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>帮你看岗位，也帮你看差距</small></div></div><span id="connection-status" class="badge">正在连接本机程序</span></header>
 <main>
@@ -21,8 +21,15 @@
 <p class="hint">填写城市后只保留这些城市的岗位。</p>
 <div class="row" id="availability"><div><label for="resume-days">每周能到岗几天（选填）</label><select id="resume-days"><option value="">按简历，没写则待确认</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div><div><label for="resume-months">能实习几个月（选填）</label><input id="resume-months" type="number" min="1" max="120" step="1" placeholder="按简历，或自行填写"></div></div>
 <p class="hint">时间只影响评分，不直接淘汰。能到岗 3 天，也会保留要求 4、5 天的机会并提醒你。</p>
-<label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧</option><option value="nowcoder">牛客</option><option value="mock">示例演示 · 免费</option></select>
+<label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧</option><option value="nowcoder">牛客</option><option value="boss">BOSS 直聘</option><option value="mock">示例演示 · 免费</option></select>
 <p id="source-hint" class="hint"></p>
+<div id="boss-setup" hidden><button id="boss-connect" type="button" class="secondary">连接 BOSS 助手</button><p id="boss-status" class="hint">首次使用需要添加本项目的浏览器助手。</p>
+<details id="boss-install"><summary>第一次使用：怎么添加助手？</summary>
+<ol><li>在正常使用的 Edge 中打开 <strong>edge://extensions</strong>（Chrome 用 chrome://extensions）。</li>
+<li>打开“开发人员模式”，选择“加载解压缩的扩展”，选中 <strong>D:\JobPilot\extensions\boss_readonly</strong>。</li>
+<li>以前添加过这个助手的，点击它的“重新加载”即可。</li>
+<li>回到本页刷新，点击“连接 BOSS 助手”。在同一个浏览器登录 BOSS，保持助手页打开。</li></ol>
+<p class="hint">添加一次即可。以后仍在本页填写简历和意向，不需要复制任何连接码。需要登录或验证时会暂停，等你处理。</p></details></div>
 <button id="start" type="submit">帮我找岗位</button>
 <p id="mode-hint" class="hint"></p>
 <p class="hint">AI 会读取你的简历和岗位说明，并按服务商规则计费。结果保存在本机；不会发消息或投递。</p>

@@ -17,7 +17,7 @@ class ResumeSearch(DomainModel):
     employment_type: EmploymentType = EmploymentType.INTERN
     available_days_per_week: int | None = Field(default=None, ge=1, le=7, strict=True)
     internship_duration_months: int | None = Field(default=None, ge=1, le=120, strict=True)
-    source: Literal["mock", "nowcoder", "shixiseng"] = "shixiseng"
+    source: Literal["mock", "boss", "nowcoder", "shixiseng"] = "shixiseng"
     mode: Literal["offline", "live"] = "live"
     # 这是一次任务的资源边界，不是声称已经搜索全站。
     search_limit: int = Field(default=100, ge=1, le=200, strict=True)

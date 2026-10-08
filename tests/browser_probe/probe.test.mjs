@@ -10,6 +10,13 @@ import {readableUrl, safeUrl, searchUrl, jobFromDetail} from "../../extensions/b
 const config = JSON.parse(readFileSync(new URL("../../extensions/boss_readonly/selectors.json", import.meta.url)));
 const boss = "https://www.zhipin.com/web/geek/job?query=Python";
 const detailUrl = "https://www.zhipin.com/job_detail/test-job.html";
+test("允许已实测的新搜索路径，保留旧路径并拒绝其他账号页面",()=>{
+  assert.equal(readableUrl("https://www.zhipin.com/web/geek/jobs?query=Python"),true);
+  assert.equal(readableUrl(boss),true);
+  assert.equal(readableUrl("https://www.zhipin.com/web/geek/job/settings"),false);
+  assert.equal(readableUrl("https://www.zhipin.com/web/geek/jobs/chat"),false);
+  assert.match(searchUrl("Python",config.site),/\/web\/geek\/jobs\?/);
+});
 function eventSource() {
   const listeners = new Set();
   return {addListener: handler => listeners.add(handler), removeListener: handler => listeners.delete(handler),

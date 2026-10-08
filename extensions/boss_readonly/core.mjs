@@ -5,7 +5,7 @@ export function readableUrl(value) {
     if (url.protocol !== "https:" || url.username || url.password || url.port) return false;
     if (url.hostname === "example.com") return url.pathname === "/";
     if (!["www.zhipin.com", "zhipin.com"].includes(url.hostname)) return false;
-    return url.pathname === "/" || /^\/web\/geek\/job\/?$/.test(url.pathname)
+    return url.pathname === "/" || /^\/web\/geek\/jobs?\/?$/.test(url.pathname)
       || /^\/job_detail\/[A-Za-z0-9_-]+\.html$/.test(url.pathname)
       // 城市首页只读取页面概要；登录及账号页面明确排除。
       || /^\/(beijing|shanghai|guangzhou|shenzhen|hangzhou|tianjin|chengdu|wuhan|nanjing|suzhou)\/$/.test(url.pathname);

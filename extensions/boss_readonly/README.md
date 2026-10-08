@@ -1,47 +1,42 @@
-# JobPilot 普通浏览器只读实验
+# JobPilot BOSS 岗位助手
 
-这是独立的 Manifest V3 扩展，不依赖 Playwright、CDP、油猴、Node 构建工具或第三方脚本。不改变现有 BOSS Adapter。本阶段验证浏览器读取路径，不代表已经实现完整扩展桥接。
+在正常使用的 Edge/Chrome 中读取 BOSS 可见岗位，交给本机 JobPilot 自动评分。沿用已有只读实验的普通扩展 API，不需要 Playwright/CDP，也不复制登录资料。
 
-## 加载
+本机有限验收已通过：1 页搜索、尝试 3 条详情，2 条完整岗位完成 DeepSeek 评分及详细复核，1 条缺字段跳过。多页和长期稳定性仍需继续验证。
 
-1. 在正常使用的 Edge 或 Chrome 中打开扩展管理页：`edge://extensions` 或 `chrome://extensions`。
-2. 由你打开“开发者模式”，选择“加载解压缩的扩展”，目录选 `D:\JobPilot\extensions\boss_readonly`。
-3. 点击工具栏的扩展图标“JobPilot 只读采集实验”，会打开独立面板。
-4. 使用普通浏览器里已有的 BOSS 登录状态。此前项目专用 `profiles/boss` 与普通浏览器的用户资料可能不同；如果当前浏览器未登录，需要你手动登录，扩展不复制 Cookie。
+## 第一次使用
 
-不需要重装 Python 或下载浏览器。不要用 Playwright 启动本次浏览器，不要接入 CDP，不要同时启用其他会投递或发消息的脚本。
+1. 双击项目根目录的 `start.cmd`。
+2. 在平时登录 BOSS 的浏览器打开 `edge://extensions` 或 `chrome://extensions`。
+3. 打开开发者模式，选择“加载解压缩的扩展”，目录选 `D:\JobPilot\extensions\boss_readonly`。以前装过旧版本的，点“重新加载”。
+4. 在同一个浏览器刷新 JobPilot 页面，选择 **BOSS 直聘**，点击 **连接 BOSS 助手**。不用填写连接码、模型密钥或简历。
+5. 保持自动打开的助手页面不关闭。在普通 BOSS 网页中本人登录；回 JobPilot 填简历、意向，点击 **帮我找岗位**。
 
-## 实验顺序
+助手会创建搜索页和详情页，自动读取公开岗位。已读结果逐条保存；完成后原搜索任务自动进入 AI 分析。请保持本机服务、浏览器和助手页运行。连接有效期一天，过期后回主页面重新连接即可。
 
-1. 点击“打开 example.com 并观察”，等待约 12 秒，回到面板导出 JSON。
-2. 点击“打开 BOSS 首页并观察”，等待并导出。页面稳定不代表已经登录。
-3. 如出现登录或验证码，在网页中手动完成；回面板刷新列表，选择页面，点击“读取并观察，不导航”。
-4. 输入关键词，点击“搜索并读取岗位”。成功时结果包含 `listings`。
-5. 点击“打开首个岗位并读取”。只有标题、公司、JD 都存在时，结果才包含可交给 `JobPosting` 校验的 `jobs`；否则记录缺失，不伪造。
+## 登录、验证、暂停与继续
 
-每次主动导航都新开标签页，通过 `chrome.tabs.update` 访问一次。读取使用 `chrome.scripting.executeScript` 的 `ISOLATED` 环境。面板必须保持打开；关闭或刷新面板会停止观察并丢失本次内存结果。生成的 JSON 默认保存到浏览器下载目录。后端尚未接入，文件不会自动导入数据库。
+遇到登录、验证码、人机验证、空白或页面结构异常，就停止读取。你在 BOSS 页面手动处理后，点助手里的 **已处理好，继续读取**，或回 JobPilot 选择这条历史任务并点 **处理好问题，继续这次搜索**。不会自动回答验证码，也不会不断重试网站。
 
-## 怎么判断结果
+刷新助手可恢复本机连接；关闭助手再打开时，从 JobPilot 重新连接。已回传的岗位和完成编号保存在本机 `data/agent/boss-bridge.db`，重新搜索时跳过这些详情。搜索页可能重新读取；不把已经确认的岗位重复入库。一个浏览器只运行一个助手面板。
 
-- `page_observed`：本次观察期间能读取页面，不保证账户、搜索、详情或长期运行已经全部验收。
-- `blank`：曾访问非空白页面，随后该标签页变空白；继续观察至少两秒。
-- `manual_verification_required`：需要你本人处理登录或验证，扩展不重试。
-- `tab_closed` / `tab_replaced` / `tab_discarded`：分别对应关闭、替换和浏览器丢弃页面，不能一律称作 crash。
-- `page_not_ready` / `observation_error`：加载或读取未完成，不当成“零岗位”。
+## 范围和限制
 
-记录标签页编号、脱敏 URL、状态和读取时间。扩展 API 没有等价于 Playwright 所有 frame/crash 事件的能力，本报告不猜测根因。原有 Playwright 诊断仍保留。
+- 只读搜索结果、公开详情和可见下一页按钮，不读取聊天、Cookie、浏览器存储或网站隐藏接口。
+- 简历和 DeepSeek 密钥不会传给扩展；助手仅接收搜索词、城市、数量上限和已读编号。
+- 目前城市在后端严格筛选，BOSS 搜索页沿用网站当前城市条件。不同城市未被网站返回时，不会凭空补出岗位；需要在网站设置相应搜索范围。
+- 默认最多尝试 100 条详情、每词最多 20 页。找不到下一页、出现重复页或达到上限都会提示范围未覆盖，不能声称全站搜完。无限滚动的页面版本暂不支持自动加载更多。
+- 标题、公司或正文缺失的详情会跳过并提示。没有明确的截止日期就不猜测过期。
+- 没有发消息、投递或修改远端资料的代码。普通浏览器路线是否适用于当前账号与网站版本，需要实际读取验收；测试样本通过不能替代真实验收。
+- 旧 CLI/MCP 的 BOSS 入口仍是 Playwright 诊断路线；日常使用新的 Dashboard 入口。
 
-## 范围与资料处理
+## 代码从哪里读
 
-没有发消息、投递、修改简历、请求网站隐藏接口或上传服务端的代码。API Key 和候选人简历不需要填入扩展。遇到验证就暂停。不修改浏览器指纹、页面计时器或原生函数。
+`helper.mjs` 接收本机任务 → `search.mjs` 控制只读循环 → `probe.mjs` 观察页面 → `collector.mjs` 读取可见字段 → `app/api/boss_bridge.py` 校验回传 → `BossExtensionAdapter` 进入原工作流。
 
-`tabs` 权限用于读取被选标签页的 URL 和生命周期；代码只查询 BOSS/example.com，事件也只记录本次选中标签页。`scripting` 的站点权限仅限 manifest 列出的三个域名。没有 debugger、cookies、历史记录、后台远程命令或外部脚本权限。
+`connect.js` 只在本机首页转交一次连接，主 API 凭据不交给扩展。扩展使用权限更小的独立凭据，不能访问简历、模型设置或批准动作。`tabs` 权限用于管理助手自己的页面和 BOSS 页面；连接时只定位本扩展的助手标签，不上传其他标签页信息。站点权限限 BOSS、example.com 诊断页和本机回环地址。
 
-报告移除 URL 的查询参数和片段，包含公开岗位正文；不要提交个人诊断报告到 Git。原始详情链接可能含本次导航所需参数，只保留在面板内存中，不写入导出的 JSON。面板不保存整个页面正文、用户聊天或浏览器登录资料。
-
-## 开发和验证
-
-选择器由现有 `app/browser/selectors.py` 导出，修改它后运行：
+选择器仍只在 `app/browser/selectors.py` 维护，修改后重新生成扩展配置：
 
 ```powershell
 .\.venv\Scripts\python.exe -m scripts.build_browser_probe
@@ -49,6 +44,6 @@ node --test tests/browser_probe/*.test.mjs
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-当前仅验证单次搜索页和单条详情的读取，不实现自动翻页。现有平台选择器仍需要真实页面验收；可见 DOM 中没有详情链接时会返回空列表，不转向隐藏接口。后续只有本机验证通过，才接入带认证的本地后端接口及原有业务流程。
+助手页“读取遇到问题时”可以打开旧只读诊断页。它仍提供 example.com 对照、单次搜索、单条详情和报告导出，保留标签页身份及 blank 后两秒观察。诊断结果不会自动导入任务。
 
-参考浏览器 API：[Tabs](https://developer.chrome.com/docs/extensions/reference/api/tabs)、[Scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting)。路线依据：[公开对照实验](https://github.com/openai/codex/issues/35700)，它并非本项目真实网站验证结果。所有实现为本项目编写，未复制第三方自动投递脚本。
+参考官方文档：[普通标签页 API](https://developer.chrome.com/docs/extensions/reference/api/tabs)、[隔离环境中的页面读取](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts)、[扩展访问本机服务](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests)。原路线参考[公开对照实验](https://github.com/openai/codex/issues/35700)，没有复制第三方自动投递脚本或加入反检测代码。

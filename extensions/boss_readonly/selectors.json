@@ -6,7 +6,7 @@
       "www.zhipin.com",
       "zhipin.com"
     ],
-    "search_path": "/web/geek/job?query={query}",
+    "search_path": "/web/geek/jobs?query={query}",
     "detail_pattern": "/job_detail/([A-Za-z0-9_-]+)\\.html",
     "links": "a[href*=\"/job_detail/\"][href*=\".html\"]",
     "title": ".job-banner .name h1",
@@ -30,5 +30,8 @@
     "登录",
     "访问异常",
     "Security Verification"
-  ]
+  ],
+  "next_selector": ".options-pages .next, .pagination .next, .pagination-next",
+  "extra_selector": ".job-banner .info-primary p, .job-banner .job-tags",
+  "status_selector": ".job-banner .job-status, .job-status-text"
 }

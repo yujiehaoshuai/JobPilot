@@ -39,10 +39,12 @@ JobPilot/
 │   │   └── shixiseng.py
 │   ├── api/
 │   │   ├── __init__.py
+│   │   ├── boss_bridge.py
 │   │   ├── server.py
 │   │   └── worker.py
 │   ├── browser/
 │   │   ├── __init__.py
+│   │   ├── bridge.py
 │   │   ├── diagnostics.py
 │   │   ├── manual_login.py
 │   │   ├── selectors.py
@@ -90,6 +92,7 @@ JobPilot/
 │   ├── web/
 │   │   ├── api.html
 │   │   ├── app.js
+│   │   ├── boss.js
 │   │   ├── index.html
 │   │   ├── resume.js
 │   │   ├── settings.js
@@ -128,7 +131,11 @@ JobPilot/
 │   └── boss_readonly/
 │       ├── background.js
 │       ├── collector.mjs
+│       ├── connect.js
 │       ├── core.mjs
+│       ├── helper.html
+│       ├── helper.mjs
+│       ├── search.mjs
 │       ├── manifest.json
 │       ├── panel.css
 │       ├── panel.html
@@ -189,10 +196,12 @@ JobPilot/
 │   └── system_smoke.py
 ├── tests/
 │   ├── browser_probe/
-│   │   └── probe.test.mjs
+│   │   ├── probe.test.mjs
+│   │   └── search.test.mjs
 │   ├── integration/
 │   │   ├── test_agent_graph.py
 │   │   ├── test_analysis_only.py
+│   │   ├── test_boss_bridge.py
 │   │   ├── test_http_api.py
 │   │   ├── test_mcp_protocol.py
 │   │   ├── test_model_settings.py

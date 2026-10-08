@@ -103,5 +103,5 @@ export async function observeTab(api, tabId, config, options = {}) {
     record("observation.finished", {outcome: report.outcome});
   }
   // 原始详情链接可能含导航用参数，仅交给同一面板，不写 JSON 报告。
-  return {report, privateLinks};
+  return {report, privateLinks, page: latestPage};
 }

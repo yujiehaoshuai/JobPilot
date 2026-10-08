@@ -2,12 +2,14 @@
 let modelConfigured=false;
 function updateModeHint() {
   const source=byId("source").value;
+  byId("boss-setup").hidden=source!=="boss";
   byId("mode-hint").textContent=source==="mock"
     ? "示例只用本机规则演示，不调用 AI、不收费。"
     : "自动提炼简历并逐条比较，前 5 名再做详细分析；分数不是录用概率。";
   byId("source-hint").textContent=source==="mock" ? "使用虚构岗位，可以放心练习。"
     : "逐页搜索，每次最多读取 100 条、每个关键词最多 20 页；没搜完会明确提示。" + (source==="nowcoder"
-    ? "牛客会打开专用 Edge 窗口，请等待它自行关闭。登录失效或遇到验证会暂停。" : "");
+    ? "牛客会打开专用 Edge 窗口，请等待它自行关闭。登录失效或遇到验证会暂停。" : source==="boss"
+    ? "BOSS 使用正常浏览器中的助手读取，请保持助手页打开。城市最终按岗位地点严格筛选；搜索范围以网站当前条件为准。" : "");
 }
 function showModelStatus(status) {
   modelConfigured=status.configured;

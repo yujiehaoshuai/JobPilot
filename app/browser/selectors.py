@@ -24,7 +24,7 @@ class SiteSpec:
 # 这些选择器需要用户登录后的真实页面验收；测试样本只证明解析契约。
 BOSS = SiteSpec(
     source="boss", home="https://www.zhipin.com", hosts=("www.zhipin.com", "zhipin.com"),
-    search_path="/web/geek/job?query={query}",
+    search_path="/web/geek/jobs?query={query}",
     detail_pattern=r"/job_detail/([A-Za-z0-9_-]+)\.html",
     # 导航栏也有 /job_detail/ 链接，只有含 .html 的详情链接才是候选岗位。
     links='a[href*="/job_detail/"][href*=".html"]', title=".job-banner .name h1",
@@ -32,6 +32,9 @@ BOSS = SiteSpec(
     description=".job-sec-text", city=".job-banner .text-city", salary=".job-banner .salary",
     empty=".job-empty, .search-empty",
 )
+BOSS_NEXT = ".options-pages .next, .pagination .next, .pagination-next"
+BOSS_EXTRA = ".job-banner .info-primary p, .job-banner .job-tags"
+BOSS_STATUS = ".job-banner .job-status, .job-status-text"
 
 # 只识别可见验证界面，不能因为普通 JD 提到了验证码技术就判为验证页。
 CHALLENGE_SELECTORS = ('iframe[src*="captcha"]', '.geetest_panel', '#captcha',

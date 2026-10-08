@@ -73,10 +73,19 @@ def main():
                 assert current["cities"]==["成都","杭州"] and current["available_days_per_week"]==3
                 assert current["source"]=="nowcoder" and current["mode"]=="live"
                 assert "candidate" not in current and "skills" not in current
+                # 没有安装助手时显示中文步骤，不创建注定无法取数的 BOSS 任务。
+                page.locator("#source").select_option("boss")
+                expect(page.locator("#boss-setup")).to_be_visible()
+                previous_count=len(captured)
+                page.locator("#start").click()
+                expect(page.locator("#message")).to_contain_text("需要先添加浏览器助手",timeout=10000)
+                assert len(captured)==previous_count
+                assert page.locator("#boss-install").get_attribute("open") is not None
+                page.locator("#source").select_option("nowcoder")
                 page.locator("#resume-employment").select_option("full_time")
                 expect(page.locator("#availability")).to_be_hidden()
                 page.locator("#start").click()
-                page.wait_for_function("!document.getElementById('start').disabled")
+                expect(page.locator("#start")).to_be_enabled()
                 assert captured[-1]["available_days_per_week"] is None
                 page.unroute("**/api/search",inspect_start)
                 # 一个按钮完成提炼、筛选、评分、前五名复核，没有任何发送动作。
