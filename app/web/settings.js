@@ -6,6 +6,9 @@ function updateModeHint() {
     ? "基础演示只识别少量常见技能，不调用 AI，也不代表完整匹配能力。"
     : "AI 会读懂岗位说明。每个岗位单独分析，费用从你的 DeepSeek 账户扣除。";
   byId("search-limit").disabled=byId("source").value==="mock";
+  byId("source-hint").textContent=byId("source").value==="nowcoder"
+    ? "牛客会使用上次登录的专用 Edge 窗口读取岗位，请等它自行关闭。登录失效或遇到验证时会暂停。当前只读取第一页，实际数量可能少于上限。"
+    : "搜索真实岗位需要一些时间。没有合适结果时，可以换个关键词。";
 }
 function showModelStatus(status) {
   modelConfigured=status.configured;

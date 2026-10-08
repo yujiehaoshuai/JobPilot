@@ -35,11 +35,11 @@
 </div></section>
 <section class="panel"><h2><span class="step-number">2</span>想找什么工作</h2>
 <label for="query">岗位关键词</label><input id="query" placeholder="例如 Python 实习生">
-<div class="row"><div><label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧 · 真实岗位</option><option value="mock">示例岗位 · 练习用</option></select></div>
+<div class="row"><div><label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧 · 真实岗位</option><option value="nowcoder">牛客 · 真实岗位</option><option value="mock">示例岗位 · 练习用</option></select></div>
 <div><label for="mode">怎么分析</label><select id="mode"><option value="live">让 AI 分析</option><option value="offline">基础演示（不调用 AI）</option></select></div></div>
 <p id="mode-hint" class="hint">AI 分析需要先在上方连接 DeepSeek。</p>
 <label for="search-limit">这次最多看多少条</label><select id="search-limit"><option value="5">5 条 · 建议先试一下</option><option value="10">10 条</option><option value="20">20 条</option><option value="40">40 条</option></select>
-<p class="hint">搜索真实岗位需要一些时间。没有合适结果时，可以换个关键词。</p>
+<p id="source-hint" class="hint">搜索真实岗位需要一些时间。没有合适结果时，可以换个关键词。</p>
 <button id="start" type="submit">帮我找岗位</button><p class="hint">目前只读取、分析和保存结果，不会替你发消息或投递。</p>
 </section>
 </form>

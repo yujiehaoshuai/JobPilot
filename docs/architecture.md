@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TD
     A[CandidateProfile 真实材料] --> D[统一岗位与规则过滤]
-    B[实习僧公开 HTTP / Mock / 暂缓的浏览器 Adapter] --> C[普通工具分派或 MCP Client + Server]
+    B[实习僧公开 HTTP / 牛客浏览器 / Mock] --> C[普通工具分派或 MCP Client + Server]
     C --> D
     D --> E[去重与 Tracker]
     E --> F[JobAnalyzer 结构化 JD 与原文引用]
@@ -24,7 +24,7 @@ flowchart TD
 
 图遍历结束后进入 COMPLETED。真实发送执行器目前停在尚未验收的平台契约处；图中执行边已用模拟动作测试，不能理解为真实平台发送已可用。
 
-当前先跑通一个真实来源：实习僧。`PublicPageReader` 只发送公开 GET，校验平台主机和路径、限制跳转与正文大小、请求至少间隔一秒。401/403/429 或登录验证会暂停，不切换指纹、不解验证码，也不读取浏览器 Cookie。`ShixisengAdapter` 从列表取编号，再解析详情；必要字段含特殊字体时，搜索跳过该条并记录 read_warnings，可选字段保留未知；全部详情不可读则失败。验证码、403、限流不属于可跳过的错误。两种读取器共享 `PageReader` 契约，后面的服务不依赖传输方式。
+实习僧和牛客已通过有限真实数据验收。实习僧使用公开 HTTP；牛客复用已登录的专用 Edge 持久资料，通过 Playwright 只读搜索和详情。牛客只读每个关键词的第一页，不自动翻页；BOSS 兼容问题仍待解决。`PublicPageReader` 只发送公开 GET，校验平台主机和路径、限制跳转与正文大小、请求至少间隔一秒。401/403/429 或登录验证会暂停，不切换指纹、不解验证码，也不读取浏览器 Cookie。`ShixisengAdapter` 从列表取编号，再解析详情；必要字段含特殊字体时，搜索跳过该条并记录 read_warnings，可选字段保留未知；全部详情不可读则失败。验证码、403、限流不属于可跳过的错误。两种读取器共享 `PageReader` 契约，后面的服务不依赖传输方式。
 
 Dashboard 默认 `analysis_only=true`；CLI 使用 `--analysis-only`。该模式在分析后直接进入下一岗位，不创建草稿或 PendingAction。原有任务和未指定该字段的 API 请求保持旧流程。`discovery` 与 `rejected_jobs` 保存读取数、排除原因和去重数，避免把零匹配误判成零数据。这里只验证技能证据，不能据此认定学历、毕业年份、语言或招聘有效期均符合。
 

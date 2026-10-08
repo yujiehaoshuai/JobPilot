@@ -72,12 +72,13 @@ def main():
                 page.locator("#resume-months").fill("4")
                 page.locator("#resume-cities").fill("成都，杭州")
                 page.locator(".resume-skill-level").first.select_option("learning")
-                page.locator("#source").select_option("shixiseng")
+                page.locator("#source").select_option("nowcoder")
+                expect(page.locator("#source-hint")).to_contain_text("Edge")
                 page.locator("#search-limit").select_option("20")
                 page.locator("#start").click()
                 expect(page.locator("#message")).to_contain_text("合成检查已收到当前表单")
                 current = captured[-1]
-                assert current["source"] == "shixiseng" and current["search_limit"] == 20
+                assert current["source"] == "nowcoder" and current["search_limit"] == 20
                 assert current["candidate"]["name"] == "修改后的虚构同学"
                 assert current["candidate"]["available_days_per_week"] == 3
                 assert current["candidate"]["internship_duration_months"] == 4
@@ -119,7 +120,7 @@ def main():
                 page.locator("#start").click()
                 expect(page.locator("#message")).to_contain_text("技能证据不在简历原文")
                 assert page.locator("#runs button").count() == count_before
-                # 截图只含虚构资料；换回有效原句，避免把错误状态作为界面样例。
+                # 截图只含虚构资料；最后换回有效原句，方便人工查看表单。
                 page.get_by_label("简历原文证据", exact=True).fill("在课程项目中使用 Python 编写测试。")
                 page.locator("#refresh").click()
                 Path("data").mkdir(exist_ok=True)

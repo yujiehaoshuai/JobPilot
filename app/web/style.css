@@ -1,5 +1,5 @@
-/* 保持简单布局，让证据、正文和审批按钮具有明确的阅读顺序。 */
-.step-number{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#e8f1eb;color:#246654;margin-right:9px}.notice{padding:12px;background:#f2f6ef;border-radius:8px;font-size:13px}.intro button{margin:16px 12px 0 0}#ai-settings{margin:0}#ai-settings summary{display:flex;justify-content:space-between;align-items:center;font-size:16px}#ai-settings .row{margin-top:12px}#ai-settings p{font-size:13px}#model-feedback{min-height:42px}
+/* 保持简单布局，让个人资料、搜索按钮和结果具有明确的阅读顺序。 */
+.step-number{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#e8f1eb;color:#246654;margin-right:9px}.intro button{margin:16px 12px 0 0}#ai-settings{margin:0}#ai-settings summary{display:flex;justify-content:space-between;align-items:center;font-size:16px}#ai-settings .row{margin-top:12px}#ai-settings p{font-size:13px}#model-feedback{min-height:42px}
 /* 简历按技能分组；空白时间表示未知，不自动假定五天到岗。 */
 .resume-skill{border-top:1px solid #dfe6df;padding-top:12px;margin-top:12px}.resume-skill>*{margin-bottom:7px}
 :root{font-family:"Microsoft YaHei",system-ui,sans-serif;color:#18312e;background:#f4f6f2;line-height:1.6;font-size:14px}

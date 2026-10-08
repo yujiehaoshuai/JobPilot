@@ -20,7 +20,7 @@ def test_resume_import_build_and_workflow(tmp_path):
         assert candidate.json()["available_days_per_week"] == 4
         assert candidate.json()["internship_duration_months"] == 6
         assert client.get("/api/runs").json() == []
-        # 只有显式开始任务才持久化确认后的资料；上传和整理本身不启动任务。
+        # 只有显式开始任务才持久化本次填写的资料；上传和整理本身不启动任务。
         run = client.post("/api/runs", json={"candidate": candidate.json()})
         assert run.status_code == 202
         state = wait_for_pause(client, run.json()["id"])

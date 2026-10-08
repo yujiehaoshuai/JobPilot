@@ -135,7 +135,7 @@ function plainReason(text) {
   const exact={"Empty job description":"岗位没有提供完整说明", "Title does not contain a target role or preferred keyword":"岗位名称不包含你填写的岗位方向或偏好关键词"};
   if(exact[text])return exact[text];
   for(const [prefix,label] of [["City outside target cities: ","工作城市不在你的选择范围："],["Excluded role in title: ","属于你排除的岗位："],["Excluded keyword: ","包含你不希望出现的内容："],["Employment type mismatch: ","工作类型与你的要求不符："]]) {
-    if(text.startsWith(prefix))return label+text.slice(prefix.length).replace("full_time","全职").replace("intern","实习");
+    if(text.startsWith(prefix))return label+text.slice(prefix.length).replace("full_time","全职").replace("internship","实习");
   }
   const duration=text.match(/^Internship requires (\d+) (months|days\/week); candidate available for (\d+)$/);
   if(duration)return `岗位要求${duration[2]==="months" ? "实习" : "每周到岗"} ${duration[1]} ${duration[2]==="months" ? "个月" : "天"}，你填写的是 ${duration[3]} ${duration[2]==="months" ? "个月" : "天"}。`;
