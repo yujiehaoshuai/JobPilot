@@ -18,8 +18,8 @@ PLATFORMS = {"boss": (BOSS, BossAdapter), "nowcoder": (NOWCODER, NowcoderAdapter
 @contextmanager
 def open_adapter(source: str, *, limit: int | None = None):
     """上下文退出时关闭读取资源；实习僧公开 HTML 不需要启动浏览器。"""
-    if limit is not None and (type(limit) is not int or not 1 <= limit <= 50):
-        raise ValueError("岗位数量上限必须为 1 到 50 的整数")
+    if limit is not None and (type(limit) is not int or not 1 <= limit <= 200):
+        raise ValueError("岗位数量上限必须为 1 到 200 的整数")
     if source == "mock":
         yield MockJobAdapter(load_settings().jobs_path)
     elif source == "shixiseng":

@@ -20,7 +20,19 @@ class OfflineLLMClient:
         """生成模拟结构化结果，用量为零且明确标记为 offline。"""
         if task == "greeting":
             raw = {"evidence_ids": payload["allowed_evidence_ids"][:3]}
-        elif task == "analyze":
+        elif task == "resume":
+            text = payload["text"]
+            skills = []
+            for line in text.splitlines():
+                for skill in SKILLS:
+                    if re.search(r"(?<![a-zA-Z])" + re.escape(skill) + r"(?![a-zA-Z])", line, re.I):
+                        skills.append({"skill": skill, "quote": line, "level": "project_experience"})
+            raw = {"name": None, "skills": skills[:40], "search_queries": [payload["intent"]]}
+        elif task == "deep_review":
+            raw = {"points": [{"evidence_index": index,
+                "aspect": {"matched":"core", "partial":"learning", "missing":"gap"}[item["status"]]}
+                for index, item in enumerate(payload["evidence"][:5])], "cautions": [], "questions": ["skill_depth"]}
+        elif task in {"analyze", "search_analyze"}:
             description = payload["description"]
             evidence, required, preferred = [], [], []
             for skill in SKILLS:
@@ -37,6 +49,8 @@ class OfflineLLMClient:
                    "llm_related": "llm" in description.lower() or "大模型" in description,
                    "backend_related": "后端" in description or "FastAPI" in description,
                    "risks": ["离线词表演示结果，尚未执行真实 LLM 语义分析"]}
+            if task == "search_analyze":
+                raw.update(intent_fit="unclear", intent_quote="")
         else:
             raise StructuredOutputError("离线模式不支持该任务")
         self.usage.append(Usage(provider="offline", cost=0))

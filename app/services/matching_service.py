@@ -6,16 +6,23 @@ from app.models.candidate import CandidateProfile
 from app.models.job import JobPosting
 
 
+def skill_key(name: str) -> str:
+    """只合并明确的同名缩写，不把相关技术或上下位概念当成已经掌握。"""
+    value = " ".join(name.casefold().split())
+    return {"js": "javascript", "ts": "typescript", "postgres": "postgresql",
+            "python3": "python", "python 3": "python", "大语言模型": "llm"}.get(value, value)
+
+
 class CandidateMatcher:
     """当前只接受名称一致的显式技能；同义词和未结构化经历由用户补充确认。"""
 
     def match(self, candidate: CandidateProfile, job: JobPosting, analysis: JobAnalysis) -> MatchResult:
         """学习中的技能标记为部分匹配，资料中不存在的技能标记为缺失。"""
-        skills = {item.skill.casefold(): (index, item) for index, item in enumerate(candidate.skills)}
+        skills = {skill_key(item.skill): (index, item) for index, item in enumerate(candidate.skills)}
         quotes = {item.skill.casefold(): item.quote for item in analysis.evidence}
         evidence: list[MatchEvidence] = []
         for requirement in dict.fromkeys(analysis.required_skills + analysis.preferred_skills):
-            found = skills.get(requirement.casefold())
+            found = skills.get(skill_key(requirement))
             if found:
                 index, item = found
                 evidence.append(MatchEvidence(requirement=requirement,

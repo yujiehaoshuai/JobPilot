@@ -48,6 +48,9 @@ NOWCODER = SiteSpec(
     salary=".job-detail-wrap .salary", empty=".job-list .el-empty, .job-list-empty",
 )
 NOWCODER_EXTRA = ".job-detail-wrap .extra"
+NOWCODER_NEXT = ".el-pagination .btn-next"
+NOWCODER_ACTIVE_PAGE = ".el-pagination .el-pager .active"
+NOWCODER_STATUS = ".job-detail-wrap button, .job-detail-wrap .job-status"
 
 # 2026-10-07：本机公开 HTML 验收。列表文字可能为特殊字体，只从列表取链接。
 SHIXISENG = SiteSpec(
@@ -61,3 +64,5 @@ SHIXISENG = SiteSpec(
 SHIXISENG_DAYS = ".job_week"
 SHIXISENG_MONTHS = ".job_time"
 SHIXISENG_NEXT = ".pagination-wrap .btn-next"
+SHIXISENG_DEADLINE = ".con-job .cutom_font"
+SHIXISENG_STATUS = ".resume_apply"

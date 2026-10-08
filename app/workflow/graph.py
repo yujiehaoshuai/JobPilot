@@ -41,6 +41,12 @@ class AgentState(TypedDict, total=False):
     status: str
     usage: list[dict]
     tool_events: list[dict]
+    resume_search: dict
+    profile_warnings: list[str]
+    ranking: bool
+    review_index: int
+    review_count: int
+    search_coverage: dict
 
 
 def build_graph(adapter, client, actions, approval, tracker, checkpointer):
@@ -50,6 +56,15 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
 
     def current_job(state):
         return JobPosting.model_validate(state["jobs"][state["index"]])
+
+    def extract_profile(state):
+        """提炼结果独立落到检查点，搜索或后续模型失败无需再次分析简历。"""
+        from app.models.search import ResumeSearch
+        from app.services.resume_service import analyze_resume
+        start = len(client.usage)
+        profile, queries, warnings = analyze_resume(client, ResumeSearch.model_validate(state["resume_search"]), state["run_id"])
+        return {"candidate": profile.model_dump(mode="json"), "queries": queries, "profile_warnings": warnings,
+                "usage": [item.model_dump() for item in client.usage[start:]], "status": "RUNNING"}
 
     def record_progress(state, target):
         """只前进自动流程的进度，不覆盖用户记录的面试、忽略或归档状态。"""
@@ -73,7 +88,8 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         accepted, rejected = [], []
         for raw_job in jobs:
             job = normalize_job(raw_job)
-            decision = RuleFilter().evaluate(profile, job)
+            from app.services.ranking_service import search_filter
+            decision = search_filter(profile, job) if state.get("ranking") else RuleFilter().evaluate(profile, job)
             if decision.passed:
                 accepted.append(job)
             else:
@@ -92,13 +108,18 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
                               "duplicates": len(accepted) - len(jobs), "retained": len(jobs)},
                 "rejected_jobs": rejected,
                 "source_warnings": list(getattr(adapter, "read_warnings", [])),
+                "search_coverage": dict(getattr(adapter, "search_coverage", {})),
                 "tool_events": list(getattr(tools, "events", []))}
 
     def analyze(state):
         """模型提取后立即核对原文，再做确定性的候选人证据匹配。"""
         usage_start = len(client.usage)
-        analysis = JobAnalyzer(client).analyze(current_job(state))
+        intent = state.get("resume_search", {}).get("intent") if state.get("ranking") else None
+        analysis = JobAnalyzer(client).analyze(current_job(state), intent=intent)
         match = CandidateMatcher().match(candidate(state), current_job(state), analysis)
+        if state.get("ranking"):
+            from app.services.ranking_service import score_match
+            match = score_match(candidate(state), current_job(state), analysis, match)
         record_progress(state, "SHORTLISTED" if match.shortlisted else "ANALYZED")
         return {"analysis": analysis.model_dump(mode="json"), "match": match.model_dump(mode="json"),
                 "draft": None, "action_id": None,
@@ -156,21 +177,50 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
     def finish(state):
         return {"status": "COMPLETED"}
 
+    def rank(state):
+        """明确无关的职业留在排除记录；其余按分数排序，时间差距不淘汰。"""
+        rows, rejected = [], list(state["rejected_jobs"])
+        for row in state["results"]:
+            if row["analysis"].get("intent_fit") == "unrelated":
+                rejected.append({"job": row["job"], "reasons": ["岗位职业方向明显不同：" + row["analysis"]["intent_quote"]]})
+            else:
+                rows.append(row)
+        rows.sort(key=lambda row: (-row["match"]["score"], row["job"]["id"]))
+        discovery = dict(state["discovery"], rejected=len(rejected), retained=len(rows))
+        return {"results": rows, "rejected_jobs": rejected, "discovery": discovery,
+                "review_index": 0, "review_count": min(5, len(rows))}
+
+    def refine(state):
+        """每次只复核一条并保存，失败恢复不重跑已完成的其他岗位。"""
+        from app.services.ranking_service import review_match
+        start = len(client.usage)
+        rows = list(state["results"])
+        index = state["review_index"]
+        rows[index] = {**rows[index], "deep_review": review_match(client, rows[index])}
+        return {"results": rows, "review_index": index + 1,
+                "usage": [*state.get("usage", []), *[item.model_dump() for item in client.usage[start:]]]}
+
     def remaining(state):
-        return "analyze" if state["index"] < len(state["jobs"]) else "finish"
+        return "analyze" if state["index"] < len(state["jobs"]) else "rank" if state.get("ranking") else "finish"
 
     graph = StateGraph(AgentState)
     for name, node in {"discover": discover, "analyze": analyze, "draft": draft,
                        "prepare": prepare, "review": review, "execute": execute,
-                       "advance": advance, "finish": finish}.items():
+                       "advance": advance, "extract_profile": extract_profile,
+                       "rank": rank, "refine": refine, "finish": finish}.items():
         graph.add_node(name, node)
-    graph.add_edge(START, "discover")
-    graph.add_conditional_edges("discover", remaining, ["analyze", "finish"])
+    graph.add_conditional_edges(START, lambda state: "extract_profile" if state.get("resume_search") else "discover",
+                                ["extract_profile", "discover"])
+    graph.add_edge("extract_profile", "discover")
+    graph.add_conditional_edges("discover", remaining, ["analyze", "rank", "finish"])
     graph.add_conditional_edges("analyze", lambda state: "draft" if state["match"]["shortlisted"]
                                 and not state.get("analysis_only", False) else "advance",
                                 ["draft", "advance"])
     for start, end in [("draft", "prepare"), ("prepare", "review"), ("review", "execute"),
                        ("execute", "advance"), ("finish", END)]:
         graph.add_edge(start, end)
-    graph.add_conditional_edges("advance", remaining, ["analyze", "finish"])
+    graph.add_conditional_edges("advance", remaining, ["analyze", "rank", "finish"])
+    for node in ("rank", "refine"):
+        graph.add_conditional_edges(node, lambda state: "refine" if state["review_index"] < state["review_count"] else "finish",
+                                    ["refine", "finish"])
     return graph.compile(checkpointer=checkpointer)

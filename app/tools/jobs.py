@@ -9,7 +9,7 @@ from app.adapters.base import JobSourceAdapter
 class SearchArguments(DomainModel):
     """确定查询词与数量上限，防止一次工具请求无限抓取。"""
     queries: list[str] = Field(default_factory=list, max_length=5)
-    limit: int = Field(default=10, ge=1, le=50, strict=True)
+    limit: int = Field(default=10, ge=1, le=200, strict=True)
 
 
 class DetailArguments(DomainModel):
@@ -54,6 +54,7 @@ class ToolCallingAdapter(JobSourceAdapter):
     def search_jobs(self, queries=None):
         jobs = self.tools.call("search_jobs", {"queries": queries or [], "limit": self.search_limit})
         self.read_warnings = list(getattr(self.tools.adapter, "read_warnings", []))
+        self.search_coverage = dict(getattr(self.tools.adapter, "search_coverage", {}))
         return jobs
 
     def get_job_detail(self, source_job_id):

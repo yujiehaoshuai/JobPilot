@@ -3,7 +3,7 @@
 允许岗位描述为空，由筛选服务记录明确的淘汰原因。
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, date
 from urllib.parse import urlsplit
 
 from pydantic import AwareDatetime, Field, field_validator
@@ -31,6 +31,8 @@ class JobPosting(DomainModel):
     url: NonEmptyStr
     publish_time: AwareDatetime | None = None
     hr_activity: str | None = None
+    deadline: date | None = None
+    closed_reason: str | None = None
     # 默认记录当前 UTC 时间，表示本次获取岗位的时间。
     fetched_at: AwareDatetime = Field(default_factory=lambda: datetime.now(UTC))
     employment_type: EmploymentType = EmploymentType.ANY

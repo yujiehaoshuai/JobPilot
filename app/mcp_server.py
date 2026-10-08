@@ -19,6 +19,7 @@ class ToolReply(DomainModel):
     jobs: list[JobPosting] = Field(default_factory=list)
     message: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    coverage: dict = Field(default_factory=dict)
 
 
 def create_server(source: str):
@@ -29,7 +30,8 @@ def create_server(source: str):
             limit = values.limit if name == "search_jobs" else None
             with open_adapter(source, limit=limit) as adapter:
                 jobs = JobTools(adapter).call(name, arguments)
-                return ToolReply(status="ok", jobs=jobs, warnings=list(getattr(adapter, "read_warnings", [])))
+                return ToolReply(status="ok", jobs=jobs, warnings=list(getattr(adapter, "read_warnings", [])),
+                                 coverage=dict(getattr(adapter, "search_coverage", {})))
         except BrowserPausedError as exc:
             return ToolReply(status="paused", message=str(exc))
         except JobPilotError:
@@ -37,7 +39,7 @@ def create_server(source: str):
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))
     async def search_jobs(queries: list[str], limit: int = 10) -> ToolReply:
-        """按关键词只读搜索平台岗位，最多返回 50 条。"""
+        """按关键词只读搜索平台岗位，最多返回 200 条并说明覆盖范围。"""
         return await asyncio.to_thread(call, "search_jobs", {"queries": queries, "limit": limit})
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))

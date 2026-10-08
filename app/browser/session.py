@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout, Error as PlaywrightError
 from app.browser.selectors import CHALLENGE_SELECTORS, CHALLENGE_TITLES, SiteSpec
-from app.exceptions import BrowserPausedError, JobParseError
+from app.exceptions import BrowserPausedError, JobParseError, UnavailableJobError
 
 
 class BrowserSession:
@@ -96,6 +96,11 @@ class BrowserSession:
         response = self.page.goto(url, wait_until="domcontentloaded", timeout=self.timeout_ms)
         if response and response.status in {401, 403, 429}:
             raise BrowserPausedError("平台拒绝访问或要求验证，请稍后人工检查")
+        if response and response.status in {404, 410}:
+            import re
+            if re.fullmatch(self.site.detail_pattern, urlsplit(url).path):
+                raise UnavailableJobError("岗位详情已下线")
+            raise JobParseError("搜索页不存在，需检查平台页面")
         self.ensure_ready()
         try:
             # SPA 会先插入隐藏的空结果模板，再异步填充岗位。
@@ -105,5 +110,29 @@ class BrowserSession:
         except PlaywrightTimeout:
             self.ensure_ready()
             raise JobParseError("页面加载超时或选择器已变化，请检查平台页面") from None
+        self.ensure_ready()
+        return self.page.content()
+
+    def read_next(self, next_selector: str, active_selector: str, number: int) -> str:
+        """只点平台的下一页；等页码和岗位身份都更新，避免读取上一页残留。"""
+        import re
+        self.ensure_ready()
+        remaining = 1.0 - (time.monotonic() - self.last_navigation)
+        if remaining > 0:
+            time.sleep(remaining)
+        self.last_navigation = time.monotonic()
+        previous = self.page.locator(self.site.links).evaluate_all(
+            "links => links.map(link => new URL(link.href).pathname).join('|')")
+        try:
+            self.page.locator(next_selector).click(timeout=self.timeout_ms)
+            self.page.locator(active_selector).filter(has_text=re.compile(rf"^{number}$")).wait_for(
+                state="visible", timeout=self.timeout_ms)
+            self.page.wait_for_function("""({selector, previous}) => {
+                const links = [...document.querySelectorAll(selector)];
+                return links.length > 0 && links.map(link => new URL(link.href).pathname).join('|') !== previous;
+            }""", arg={"selector": self.site.links, "previous": previous}, timeout=self.timeout_ms)
+        except PlaywrightTimeout:
+            self.ensure_ready()
+            raise JobParseError("点击下一页后岗位列表没有按预期更新，已停止读取") from None
         self.ensure_ready()
         return self.page.content()

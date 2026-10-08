@@ -2,11 +2,11 @@
 
 import re
 import unicodedata
-from urllib.parse import quote
+from datetime import date
 from bs4 import BeautifulSoup
 
 from app.adapters.browser_adapter import ReadonlyBrowserAdapter
-from app.browser.selectors import SHIXISENG, SHIXISENG_DAYS, SHIXISENG_MONTHS, SHIXISENG_NEXT
+from app.browser.selectors import SHIXISENG, SHIXISENG_DAYS, SHIXISENG_MONTHS, SHIXISENG_NEXT, SHIXISENG_DEADLINE, SHIXISENG_STATUS
 from app.enums import EmploymentType
 from app.exceptions import JobParseError, SelectorChangedError, UnreadableJobError
 
@@ -41,35 +41,8 @@ class ShixisengAdapter(ReadonlyBrowserAdapter):
         raise SelectorChangedError("实习僧没有岗位链接或可见空结果，请检查页面是否加载完整")
 
     def search_jobs(self, queries: list[str] | None = None):
-        """每个关键词最多读两页；达到数量上限或无下一页就停止。"""
-        self.read_warnings = []
-        ids = []
-        for query in (queries or [""])[:5]:
-            for page in range(1, 3):
-                url = self.site.home + self.site.search_path.format(query=quote(query, safe=""))
-                if page > 1:
-                    url += f"&page={page}"
-                html = self.session.read(url, f"{self.site.links}, {self.site.empty}")
-                found = self.parse_links(html)
-                new_ids = [job_id for job_id in found if job_id not in ids]
-                # 服务端可能忽略页码或反复返回同一页；不继续空转或重复读详情。
-                if not new_ids:
-                    break
-                ids.extend(new_ids)
-                next_button = BeautifulSoup(html, "html.parser").select_one(SHIXISENG_NEXT)
-                if len(ids) >= self.limit or next_button is None or next_button.has_attr("disabled"):
-                    break
-            if len(ids) >= self.limit:
-                break
-        jobs = []
-        for job_id in ids[:self.limit]:
-            try:
-                jobs.append(self.get_job_detail(job_id))
-            except UnreadableJobError:
-                self.read_warnings.append(f"岗位 {job_id} 的详情文字无法可靠解释，已跳过，请人工查看原页。")
-        if ids and not jobs:
-            raise UnreadableJobError("找到了岗位链接，但本轮详情全部不可读，未生成任何匹配结论")
-        return jobs
+        """沿用公开分页，直到末页或达到明确的单次读取上限。"""
+        return self.search_pages(queries, SHIXISENG_NEXT)
 
     def detail_url(self, source_job_id: str) -> str:
         if not re.fullmatch(r"inn_[A-Za-z0-9]+", source_job_id):
@@ -94,4 +67,15 @@ class ShixisengAdapter(ReadonlyBrowserAdapter):
         job.required_days_per_week = int(day_match[1]) if day_match else None
         job.internship_duration_months = int(month_match[1]) if month_match else None
         job.employment_type = EmploymentType.INTERN
+        for item in soup.select(SHIXISENG_DEADLINE):
+            deadline = re.search(r"截止日期[：:]\s*(\d{4}-\d{2}-\d{2})", item.get_text(" ", strip=True))
+            if deadline:
+                try:
+                    job.deadline = date.fromisoformat(deadline[1])
+                except ValueError:
+                    pass  # 页面日期格式不合法时保留未知，不猜测截止时间。
+        for item in soup.select(SHIXISENG_STATUS):
+            status = item.get_text(" ", strip=True)
+            if status in {"已结束", "已过期", "已停止招聘", "职位已下线", "招聘已结束"}:
+                job.closed_reason = status
         return job

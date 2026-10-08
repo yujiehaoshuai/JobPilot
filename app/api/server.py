@@ -24,6 +24,7 @@ from app.exceptions import JobPilotError
 from app.reliability import TokenBucket
 from app.services.action_service import resolve_after_review
 from app.models.resume import ResumeProfileRequest
+from app.models.search import ResumeSearch
 from app.services.resume_service import extract_resume, build_candidate, MAX_UPLOAD_BYTES
 from app.services import model_settings
 
@@ -182,6 +183,21 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.get("/api/runs", dependencies=auth)
     def list_runs():
         return runs.list()
+
+    @app.post("/api/search", status_code=202, dependencies=auth)
+    def search_resume(body: ResumeSearch):
+        """简历提炼在工作线程运行；一个按钮创建可恢复的完整只读任务。"""
+        if body.mode == "live":
+            from app.llm.client import create_llm
+            create_llm("live")
+        run_id = str(uuid4())
+        incoming = {"run_id": run_id, "source": body.source, "mode": body.mode, "transport": "direct",
+                    "analysis_only": True, "ranking": True, "search_limit": body.search_limit,
+                    "resume_search": body.model_dump(mode="json"), "queries": []}
+        runs.create(run_id, {"source": body.source, "mode": body.mode, "transport": "direct", "input": incoming,
+                             "snapshot": {}, "interrupts": [], "error": None})
+        worker.submit(run_id)
+        return {"id": run_id}
 
     @app.post("/api/resume/extract", dependencies=auth)
     async def resume_text(request: Request, format: Literal["txt", "docx"]):

@@ -40,7 +40,7 @@ class MatchEvidence(DomainModel):
 
 
 class MatchResult(DomainModel):
-    """保守匹配结果，不使用无法解释的综合分数。"""
+    """证据匹配与可解释排序；分数为空表示旧流程未做排名。"""
 
     job_id: str
     matched_skills: list[str] = Field(default_factory=list)
@@ -51,6 +51,9 @@ class MatchResult(DomainModel):
     evidence: list[MatchEvidence] = Field(default_factory=list)
     recommendation_reason: str
     shortlisted: bool
+    score: float | None = Field(default=None, ge=0, le=100)
+    score_breakdown: dict[str, float] = Field(default_factory=dict)
+    availability_notes: list[str] = Field(default_factory=list)
 
 
 class GreetingPlan(DomainModel):

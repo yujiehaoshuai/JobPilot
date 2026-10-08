@@ -51,3 +51,7 @@ class SelectorChangedError(JobParseError):
 
 class UnreadableJobError(JobParseError):
     """单条岗位正文含无法可靠解释的字符；搜索可跳过，但必须说明原因。"""
+
+
+class UnavailableJobError(JobParseError):
+    """岗位详情明确返回 404/410；记录下线原因后可继续其他岗位。"""

@@ -33,7 +33,7 @@ class MCPJobAdapter(JobSourceAdapter):
         environment["PYTHONIOENCODING"] = "utf-8"
         params = StdioServerParameters(command=sys.executable,
             args=["-m", "app.mcp_server", "--source", self.source], cwd=str(PROJECT_ROOT), env=environment)
-        async with asyncio.timeout(180):
+        async with asyncio.timeout(900):
             async with stdio_client(params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
@@ -54,6 +54,7 @@ class MCPJobAdapter(JobSourceAdapter):
             if reply.status != "ok":
                 raise JobParseError(reply.message or "MCP 工具调用失败")
             self.read_warnings = reply.warnings
+            self.search_coverage = reply.coverage
             success = True
             return reply.jobs
         finally:

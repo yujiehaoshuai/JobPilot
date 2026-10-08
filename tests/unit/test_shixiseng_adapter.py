@@ -205,3 +205,37 @@ def test_all_unreadable_details_are_not_empty_search_success():
     with PublicPageReader(SHIXISENG, transport=httpx.MockTransport(respond)) as reader:
         with pytest.raises(JobParseError, match="全部不可读"):
             ShixisengAdapter(reader).search_jobs(["Python"])
+
+
+def test_real_deadline_field_is_parsed_without_using_refresh_date():
+    from datetime import date
+    with PublicPageReader(SHIXISENG) as reader:
+        html=DETAIL+'<div class="con-job"><div class="cutom_font">截止日期：2000-01-02</div></div>'
+        job=ShixisengAdapter(reader).parse_detail(html,"inn_demo1")
+    assert job.deadline==date(2000,1,2) and job.publish_time is None
+
+
+def test_broad_search_reads_third_page_and_reports_a_partial_limit():
+    seen=[]
+    def respond(request):
+        seen.append(request)
+        if request.url.path=="/interns":
+            page=int(request.url.params.get("page","1"))
+            return html_response(f'<a href="/intern/inn_page{page}">职位</a><div class="pagination-wrap"><button class="btn-next">下一页</button></div>')
+        return html_response()
+    with PublicPageReader(SHIXISENG,transport=httpx.MockTransport(respond)) as reader:
+        adapter=ShixisengAdapter(reader,limit=3)
+        jobs=adapter.search_jobs(["Python"])
+        assert len(jobs)==3 and adapter.search_coverage["pages"]==3
+        assert not adapter.search_coverage["complete"] and "上限" in adapter.read_warnings[0]
+
+
+def test_removed_job_is_skipped_without_hiding_a_verification_page():
+    def respond(request):
+        if request.url.path=="/interns":return html_response(SEARCH)
+        if request.url.path.endswith("inn_demo1"):return html_response(status=410)
+        return html_response()
+    with PublicPageReader(SHIXISENG,transport=httpx.MockTransport(respond)) as reader:
+        adapter=ShixisengAdapter(reader)
+        jobs=adapter.search_jobs(["Python"])
+        assert len(jobs)==1 and "下线" in adapter.read_warnings[0]

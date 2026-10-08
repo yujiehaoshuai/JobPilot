@@ -8,7 +8,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.browser.selectors import CHALLENGE_TITLES, SiteSpec
-from app.exceptions import BrowserPausedError, JobParseError, SelectorChangedError
+from app.exceptions import UnavailableJobError, BrowserPausedError, JobParseError, SelectorChangedError
 
 
 class PublicPageReader:
@@ -63,6 +63,8 @@ class PublicPageReader:
                             raise BrowserPausedError("页面跳往登录、验证或未允许的地址，已停止读取") from None
                         url = target
                         continue
+                    if response.status_code in {404, 410} and re.fullmatch(self.site.detail_pattern, urlsplit(url).path):
+                        raise UnavailableJobError("岗位详情已下线")
                     if response.status_code != 200:
                         raise JobParseError(f"公开页面返回 HTTP {response.status_code}，未获得岗位数据")
                     if "text/html" not in response.headers.get("content-type", "").lower():

@@ -1,4 +1,4 @@
-"""在本机提取简历正文和校验证据，不调用模型、不猜测候选人经历。"""
+"""读取简历正文，校验人工或 AI 提取的每条证据，不补写候选人经历。"""
 
 from io import BytesIO
 import re
@@ -91,3 +91,65 @@ def build_candidate(request: ResumeProfileRequest) -> CandidateProfile:
                             employment_type=request.employment_type,
                             available_days_per_week=request.available_days_per_week,
                             internship_duration_months=request.internship_duration_months)
+
+
+def analyze_resume(client, request, candidate_id: str):
+    """AI 提炼后再逐项验真；原文中的否定、意愿和他人要求不能变成已有技能。"""
+    from app.models.search import ResumeExtraction
+    from app.exceptions import StructuredOutputError
+    from app.enums import SkillLevel
+    result = client.complete("resume", {"text": request.text, "intent": request.intent}, ResumeExtraction)
+    for quote in result.education + result.projects + result.experience:
+        if not quote or quote not in request.text:
+            raise StructuredOutputError("AI 提取的经历不在简历原文中，请检查正文后重试")
+    if result.name and result.name not in request.text:
+        raise StructuredOutputError("AI 提取的姓名不在原文中，已拒绝保存")
+    skills, warnings = [], []
+    for item in result.skills:
+        if item.quote not in request.text:
+            raise StructuredOutputError("AI 提取的技能证据不在简历原文中，已拒绝保存")
+        # 检查完整原句，防止模型只截取“不熟悉 Python”中的 Python。
+        position = request.text.find(item.quote)
+        left = max(request.text.rfind(mark, 0, position) for mark in ("\n", "。", "；")) + 1
+        ends = [request.text.find(mark, position + len(item.quote)) for mark in ("\n", "。", "；")]
+        right = min([end for end in ends if end >= 0] or [len(request.text)])
+        sentence = request.text[left:right]
+        if re.search(r"不熟悉|不会|未掌握|没有.{0,8}经验|尚未|计划学习|希望学习|岗位要求|招聘要求|同事|他人", sentence):
+            warnings.append(f"{item.skill} 的原句含否定、意愿或他人要求，未计为已有技能。")
+            continue
+        # 只看到技能名不等于有项目或工作经历；不让 AI 自行提高经验级别。
+        level = item.level
+        if level == SkillLevel.PROFESSIONAL and not re.search(r"工作|任职|实习|就职", sentence):
+            level = SkillLevel.PROJECT_EXPERIENCE
+        if level == SkillLevel.PROJECT_EXPERIENCE and not re.search(r"项目|开发|实现|编写|搭建|构建|完成|使用", sentence):
+            level = SkillLevel.LEARNING
+        checked = item.model_copy(update={"level": level})
+        try:
+            one = build_candidate(ResumeProfileRequest(text=request.text, name="简历", skills=[checked]))
+        except ValueError as exc:
+            raise StructuredOutputError("AI 提取的技能名称与引用不一致，已拒绝保存") from exc
+        if not any(value.skill.casefold() == one.skills[0].skill.casefold() for value in skills):
+            skills.extend(one.skills)
+
+    def available(value, quote, unit):
+        if value is None:
+            return None
+        if not quote or quote not in request.text or not re.search(rf"{value}\s*{unit}", quote):
+            raise StructuredOutputError("AI 提取的可用时间缺少原文依据，已拒绝保存")
+        return value
+
+    days = available(result.available_days_per_week, result.days_quote, "天")
+    months = available(result.internship_duration_months, result.months_quote, "个月")
+    candidate = CandidateProfile(id=candidate_id, name=result.name or "本次简历", skills=skills,
+        education=result.education, projects=result.projects, experience=result.experience,
+        target_roles=[request.intent], target_cities=request.cities, employment_type=request.employment_type,
+        available_days_per_week=request.available_days_per_week if request.available_days_per_week is not None else days,
+        internship_duration_months=request.internship_duration_months if request.internship_duration_months is not None else months)
+    queries = list(dict.fromkeys(query[:80] for query in result.search_queries))[:3]
+    # 技术名本身也是一个宽搜索词，避免模型只给“Python 后端开发实习”等狭窄组合。
+    anchor = re.search(r"[A-Za-z][A-Za-z0-9+#.]*", request.intent)
+    if anchor:
+        queries = list(dict.fromkeys([anchor[0], *queries]))[:3]
+    if not skills:
+        warnings.append("简历中没有提取到可核验的技能，本轮分数只能作为有限参考。")
+    return candidate, queries, warnings
