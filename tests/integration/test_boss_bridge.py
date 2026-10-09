@@ -58,7 +58,12 @@ def test_extension_returns_jobs_then_workflow_resumes_without_browser_or_repeat_
         assert response.status_code == 200
         task = response.json()["task"]
         assert task["id"] == run_id and "candidate" not in task and "text" not in task and "jobs" not in task
-        assert client.post(f"/api/boss/tasks/{run_id}",headers=headers,json={"job":detail(),"pages":1}).status_code == 200
+        assert client.post(f"/api/boss/tasks/{run_id}",headers=headers,json={
+            "job":{**detail(),"contact_button":"立即沟通","contact_count":1},"pages":1,
+            "page_sample":{"query_index":0,"page_number":1,"ids":["fixture1"],"continuation":"scroll"}}).status_code == 200
+        stored=app.state.boss_bridge.get(run_id)
+        assert stored["page_samples"][0]["ids"] == ["fixture1"]
+        assert stored["contact_checks"]["fixture1"] == {"button":"立即沟通","count":1}
         # 重复回传不会产生两条岗位；主图仍停在读取节点。
         client.post(f"/api/boss/tasks/{run_id}",headers=headers,json={"job":detail(),"pages":1})
         assert client.get("/api/boss/status",params={"run_id":run_id}).json()["task"]["attempted"] == ["fixture1"]

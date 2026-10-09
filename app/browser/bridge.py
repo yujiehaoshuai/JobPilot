@@ -8,6 +8,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID
+from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 from app.models.base import DomainModel
@@ -25,6 +26,28 @@ class BossPageDetail(DomainModel):
     salary: str = Field(default="", max_length=1000)
     extra: str = Field(default="", max_length=3000)
     closed_reason: str = Field(default="", max_length=200)
+    contact_button: str = Field(default="",max_length=100)
+    contact_count: int = Field(default=0,ge=0,le=30)
+
+
+class ScrollSample(DomainModel):
+    """岗位列表祖先的滚动尺寸；不包含正文、账号或导航参数。"""
+
+    element: str = Field(max_length=120)
+    top: int
+    height: int = Field(ge=0)
+    viewport: int = Field(ge=0)
+    overflow: str = Field(max_length=30)
+
+
+class SearchPageSample(DomainModel):
+    """只保存公开岗位编号，供验证续页是否真的带来新岗位。"""
+
+    query_index: int = Field(ge=0,le=4)
+    page_number: int = Field(ge=1,le=20)
+    ids: list[Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,200}$")]] = Field(max_length=200)
+    continuation: Literal["available","scroll","end","unknown"]
+    scroll: list[ScrollSample] = Field(default_factory=list,max_length=12)
 
 
 class BridgeDiagnostic(DomainModel):
@@ -51,6 +74,7 @@ class BridgeUpdate(DomainModel):
     finished: bool = Field(default=False, strict=True)
     complete: bool = Field(default=False, strict=True)
     diagnostic: BridgeDiagnostic | None = None
+    page_sample: SearchPageSample | None = None
 
     @model_validator(mode="after")
     def consistent_update(self):
@@ -171,6 +195,11 @@ class BossBridge:
             value.update(lease=time.time() + 60, message="浏览器助手正在读取岗位")
             if update.diagnostic:
                 value["diagnostic"] = update.diagnostic.model_dump()
+            if update.page_sample:
+                value["page_samples"] = [*value.get("page_samples",[]),update.page_sample.model_dump()][-100:]
+            if update.job:
+                value.setdefault("contact_checks",{})[job.source_job_id] = dict(
+                    button=update.job.contact_button,count=update.job.contact_count)
             if update.paused:
                 value.update(status="paused", message=update.warning or "请在 BOSS 页面完成登录或验证，然后继续")
             elif update.finished:

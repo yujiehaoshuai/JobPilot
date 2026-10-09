@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import vm from "node:vm";
 import {observeTab} from "../../extensions/boss_readonly/probe.mjs";
-import {collectPage} from "../../extensions/boss_readonly/collector.mjs";
+import {collectPage,nextSearchPage} from "../../extensions/boss_readonly/collector.mjs";
 import {readableUrl, safeUrl, searchUrl, jobFromDetail} from "../../extensions/boss_readonly/core.mjs";
 
 const config = JSON.parse(readFileSync(new URL("../../extensions/boss_readonly/selectors.json", import.meta.url)));
@@ -108,6 +108,18 @@ test("旧文档读取结果不会被认作当前页面成功", async () => {
   assert.equal(report.observations.length, 0);
 });
 
+test("外部资源持续加载但岗位正文已就绪时可以读取", async () => {
+  const env=environment({ready_state:"interactive"});env.tab.status="loading";
+  const {report}=await observeTab(env.api,9,config,{...env.options,navigateTo:boss});
+  assert.equal(report.outcome,"page_observed");assert.ok(env.reads.length>0);
+});
+
+test("等待新导航提交时不能把旧页面正文当作成功", async () => {
+  const env=environment();env.tab.pendingUrl=detailUrl;
+  const {report}=await observeTab(env.api,9,config,{...env.options,navigateTo:boss});
+  assert.equal(report.outcome,"page_not_ready");assert.equal(env.reads.length,0);
+});
+
 test("无关标签页事件不会进入本次报告", async () => {
   const env = environment();
   env.tasks.push({at: 500, run: () => env.api.tabs.onUpdated.emit(100, {url: "https://private.example/"}, {url: "https://private.example/"})});
@@ -184,4 +196,34 @@ test("读取期间跳到聊天页时返回暂停，不读取聊天正文或标�
   assert.equal(page.reason, "unsupported_page");
   assert.equal(page.title, "");
   assert.equal(page.body_length, 0);
+});
+
+test("滚动续页只滚动岗位容器，验证框出现后不再操作",()=>{
+  for(const challenge of [false,true]) {
+    let scrolls=0;
+    const link={getClientRects:()=>[1]};
+    const box={getClientRects:()=>[1],querySelector:()=>link,scrollHeight:2000,clientHeight:500,
+      scrollTo:()=>scrolls++};
+    const document={title:"岗位搜索",body:{},querySelectorAll:selector=>
+      selector===config.scroll_selector?[box]:selector===config.challenge_selectors[0]&&challenge?[link]:[]};
+    const result=vm.runInNewContext(`(${nextSearchPage.toString()})(config)`,{config,document,
+      location:new URL("https://www.zhipin.com/web/geek/jobs"),
+      getComputedStyle:()=>({display:"block",visibility:"visible",overflowY:"auto"})});
+    assert.equal(result,!challenge);assert.equal(scrolls,challenge?0:1);
+  }
+});
+
+test("整页滚动以岗位列表末项为目标，不滚到列表外的推荐链接",()=>{
+  let scrolls=0;
+  const good={getClientRects:()=>[1],scrollIntoView:()=>scrolls++};
+  const unrelated={getClientRects:()=>[1],scrollIntoView:()=>assert.fail("不能滚到列表外")};
+  const body={};
+  const box={getClientRects:()=>[1],querySelector:()=>good,querySelectorAll:()=>[good],
+    parentElement:body,scrollHeight:1000,clientHeight:1000};
+  const document={title:"岗位搜索",body,querySelectorAll:selector=>selector===config.scroll_selector?[box]
+    :selector===config.site.links?[good,unrelated]:[]};
+  assert.equal(vm.runInNewContext(`(${nextSearchPage.toString()})(config)`,{config,document,
+    location:new URL("https://www.zhipin.com/web/geek/jobs"),
+    getComputedStyle:()=>({display:"block",visibility:"visible",overflowY:"visible"})}),true);
+  assert.equal(scrolls,1);
 });

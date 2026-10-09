@@ -4,14 +4,15 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from app.browser.selectors import BOSS, BOSS_NEXT, BOSS_EXTRA, BOSS_STATUS, CHALLENGE_SELECTORS, CHALLENGE_TITLES
+from app.browser.selectors import BOSS, BOSS_NEXT, BOSS_EXTRA, BOSS_STATUS, BOSS_CONTACT, BOSS_SCROLL, CHALLENGE_SELECTORS, CHALLENGE_TITLES
 
 
 def probe_config() -> dict:
     """仅导出公开页面结构，不包含登录资料、环境变量或候选人信息。"""
     return {"site": asdict(BOSS), "challenge_selectors": list(CHALLENGE_SELECTORS),
             "challenge_titles": list(CHALLENGE_TITLES),
-            "next_selector": BOSS_NEXT, "extra_selector": BOSS_EXTRA, "status_selector": BOSS_STATUS}
+            "next_selector": BOSS_NEXT, "extra_selector": BOSS_EXTRA, "status_selector": BOSS_STATUS,
+            "contact_selector": BOSS_CONTACT, "scroll_selector": BOSS_SCROLL}
 
 
 def main() -> None:

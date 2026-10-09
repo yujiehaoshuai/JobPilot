@@ -35,6 +35,8 @@ BOSS = SiteSpec(
 BOSS_NEXT = ".options-pages .next, .pagination .next, .pagination-next"
 BOSS_EXTRA = ".job-banner .info-primary p, .job-banner .job-tags"
 BOSS_STATUS = ".job-banner .job-status, .job-status-text"
+BOSS_CONTACT = ".job-banner .btn-startchat, .job-banner .op-btn a, .job-banner .op-btn button"
+BOSS_SCROLL = ".job-list-box, .job-list-container, .search-job-result"
 
 # 只识别可见验证界面，不能因为普通 JD 提到了验证码技术就判为验证页。
 CHALLENGE_SELECTORS = ('iframe[src*="captcha"]', '.geetest_panel', '#captcha',

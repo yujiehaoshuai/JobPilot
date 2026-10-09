@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "JobPilot BOSS 岗位助手",
-  "version": "0.2.0",
-  "description": "在普通浏览器读取 BOSS 岗位，交给本机 JobPilot 匹配；不沟通、不投递。",
+  "version": "0.3.0",
+  "description": "在普通浏览器读取 BOSS 岗位，交给本机 JobPilot 匹配；用户核对并批准后可批量发起沟通。",
   "permissions": ["tabs", "scripting"],
   "host_permissions": ["https://www.zhipin.com/*", "https://zhipin.com/*", "https://example.com/*", "http://127.0.0.1/*"],
   "content_scripts": [{"matches": ["http://127.0.0.1/*"], "js": ["connect.js"], "run_at": "document_idle"}],

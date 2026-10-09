@@ -2,6 +2,8 @@
 
 实习僧主线已经跑通，牛客复用同一套后端也已通过真实验收；阅读时先沿下面的一条主线走。Mock、fixtures 和测试用于验证行为；审批、MCP、PostgreSQL、Docker 等扩展模块可以后读，不需要一开始全部理解。
 
+BOSS 普通扩展读取也已跑通。阅读批量联系功能时按 `app/web/batch.js`（用户选岗位）→ `app/api/boss_contact.py`（区分审批与扩展权限）→ `app/services/boss_contact.py`（状态与防重）→ `extensions/boss_readonly/contact.mjs`（核对网页后单次点击）顺序看。暂不支持附件简历投递，首次真实联系待本人批准后验收。
+
 | 顺序 | 文件 | 要弄明白的问题 |
 | --- | --- | --- |
 | 1 | app/models/job.py、candidate.py | 一个岗位和一份候选人资料包含什么？ |
@@ -40,6 +42,7 @@ JobPilot/
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── boss_bridge.py
+│   │   ├── boss_contact.py
 │   │   ├── server.py
 │   │   └── worker.py
 │   ├── browser/
@@ -73,6 +76,7 @@ JobPilot/
 │   │   ├── __init__.py
 │   │   ├── action_service.py
 │   │   ├── analysis_service.py
+│   │   ├── boss_contact.py
 │   │   ├── deduplication_service.py
 │   │   ├── filter_service.py
 │   │   ├── greeting_service.py
@@ -92,6 +96,7 @@ JobPilot/
 │   ├── web/
 │   │   ├── api.html
 │   │   ├── app.js
+│   │   ├── batch.js
 │   │   ├── boss.js
 │   │   ├── index.html
 │   │   ├── resume.js
@@ -132,6 +137,7 @@ JobPilot/
 │       ├── background.js
 │       ├── collector.mjs
 │       ├── connect.js
+│       ├── contact.mjs
 │       ├── core.mjs
 │       ├── helper.html
 │       ├── helper.mjs
@@ -196,12 +202,14 @@ JobPilot/
 │   └── system_smoke.py
 ├── tests/
 │   ├── browser_probe/
+│   │   ├── contact.test.mjs
 │   │   ├── probe.test.mjs
 │   │   └── search.test.mjs
 │   ├── integration/
 │   │   ├── test_agent_graph.py
 │   │   ├── test_analysis_only.py
 │   │   ├── test_boss_bridge.py
+│   │   ├── test_boss_contact.py
 │   │   ├── test_http_api.py
 │   │   ├── test_mcp_protocol.py
 │   │   ├── test_model_settings.py

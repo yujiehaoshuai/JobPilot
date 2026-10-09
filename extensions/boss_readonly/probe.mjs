@@ -56,7 +56,7 @@ export async function observeTab(api, tabId, config, options = {}) {
         // blank 后只收集标签页元数据，至少再等待两秒，不重新导航或读取 DOM。
         if (now() - blankAt >= 2000) { report.outcome = "blank"; break; }
       } else if (tab.discarded) { report.outcome = "tab_discarded"; break; }
-      else if (tab.status === "complete" && readableUrl(tab.url) && now() - lastReadAt >= 3000) {
+      else if (!tab.pendingUrl && readableUrl(tab.url) && now() - lastReadAt >= 3000) {
         lastReadAt = now();
         const [injection] = await api.scripting.executeScript({target: {tabId, frameIds: [0]},
           world: "ISOLATED", func: collectPage, args: [config]});
@@ -83,7 +83,8 @@ export async function observeTab(api, tabId, config, options = {}) {
         }
       }
       if (blankAt === null && now() - started >= duration) {
-        report.outcome = latestPage && tab.status === "complete" && safeUrl(tab.url) === safeUrl(latestPage.url)
+        report.outcome = latestPage && !tab.pendingUrl && ["interactive","complete"].includes(latestPage.ready_state)
+          && latestPage.body_length > 0 && safeUrl(tab.url) === safeUrl(latestPage.url)
           ? "page_observed" : "page_not_ready";
         break;
       }

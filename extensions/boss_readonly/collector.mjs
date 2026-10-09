@@ -12,7 +12,7 @@ export function collectPage(config) {
   const text = selector => [...document.querySelectorAll(selector)]
     .filter(visible).map(element => element.innerText?.trim() || "").filter(Boolean).join("\n").slice(0, 30000);
   const result = {url: cleanUrl, title: "", ready_state: document.readyState,
-    body_length: 0, blocked: false, listings: [], detail: null, empty: false, next_state: "unknown"};
+    body_length: 0, blocked: false, listings: [], detail: null, empty: false, next_state: "unknown",scroll:[]};
   // 在函数执行时再校验地址，避免读取前后恰好发生页面跳转。
   const boss = config.site.hosts.includes(locationUrl.hostname);
   const allowedPath = locationUrl.pathname === "/" || /^\/web\/geek\/jobs?\/?$/.test(locationUrl.pathname)
@@ -50,27 +50,61 @@ export function collectPage(config) {
       seen.add(clean);
       result.listings.push({url: clean, link_text: (element.innerText || "").trim().slice(0, 300),
         navigation_url: url.href});
-      if (result.listings.length >= 50) break;
+      if (result.listings.length >= 200) break;
     } catch { /* 非法链接跳过，不访问它。 */ }
   }
+  if (result.next_state === "unknown" && result.listings.length) {
+    const box = [...document.querySelectorAll(config.scroll_selector)].find(visible);
+    if (box) result.next_state = "scroll";
+  }
+  // 只记录岗位容器及祖先的尺寸，不记录账号文字，用来判断滚动是否发生在正确位置。
+  let container=[...document.querySelectorAll(config.scroll_selector)].find(visible);
+  for(let depth=0;container && depth<12;depth++,container=container.parentElement) {
+    result.scroll.push({element:(container.tagName+"."+[...container.classList].join(".")).slice(0,120),
+      top:Math.round(container.scrollTop),height:container.scrollHeight,viewport:container.clientHeight,
+      overflow:getComputedStyle(container).overflowY});
+  }
   if (/^\/job_detail\/[A-Za-z0-9_-]+\.html$/.test(locationUrl.pathname)) {
+    const contacts = [...document.querySelectorAll(config.contact_selector)].filter(visible)
+      .filter(e=>["立即沟通","继续沟通","已沟通"].includes((e.innerText||"").trim()));
     result.detail = {url: cleanUrl, title: text(config.site.title), company: text(config.site.company),
       description: text(config.site.description), city: text(config.site.city), salary: text(config.site.salary),
-      extra: text(config.extra_selector), closed_reason: text(config.status_selector)};
+      extra: text(config.extra_selector), closed_reason: text(config.status_selector),
+      contact_button: contacts.map(e=>e.innerText.trim()).join("、").slice(0,100),contact_count:Math.min(30,contacts.length)};
   }
   return result;
 }
 
-/** 只能点击公开搜索页的下一页；不接受后端发来的选择器或任意页面脚本。 */
+/** 只操作公开搜索页的续页按钮或岗位列表滚动，不接受后端传入任意脚本。 */
 export function nextSearchPage(config) {
   if (location.protocol !== "https:" || !config.site.hosts.includes(location.hostname)
-      || !/^\/web\/geek\/jobs?\/?$/.test(location.pathname)) return false;
+      || location.port || !/^\/web\/geek\/jobs?\/?$/.test(location.pathname)) return false;
+  const visible=element=>getComputedStyle(element).display!=="none"
+    && getComputedStyle(element).visibility!=="hidden" && element.getClientRects().length>0;
+  if(config.challenge_titles.some(word=>document.title.includes(word))
+      || config.challenge_selectors.some(selector=>[...document.querySelectorAll(selector)].some(visible)))return false;
   const next = [...document.querySelectorAll(config.next_selector)].find(element => {
     const style = getComputedStyle(element);
     return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length;
   });
   if (!next || next.disabled || next.getAttribute("aria-disabled") === "true"
-      || [...next.classList].some(name => name.includes("disabled"))) return false;
+      || [...next.classList].some(name => name.includes("disabled"))) {
+    if(next)return false;
+    // 有些 BOSS 版本通过滚动加载。只滚动包含岗位链接的列表及其滚动祖先。
+    let box=[...document.querySelectorAll(config.scroll_selector)].find(element=>
+      visible(element) && element.querySelector(config.site.links));
+    if(!box)return false;
+    const list=box;
+    while(box && box!==document.body) {
+      if(/auto|scroll/.test(getComputedStyle(box).overflowY) && box.scrollHeight>box.clientHeight) {
+        box.scrollTo({top:box.scrollHeight,behavior:"instant"});return true;
+      }
+      box=box.parentElement;
+    }
+    const links=[...list.querySelectorAll(config.site.links)].filter(visible);
+    links.at(-1)?.scrollIntoView({block:"end",behavior:"instant"});
+    return links.length>0;
+  }
   next.click();
   return true;
 }

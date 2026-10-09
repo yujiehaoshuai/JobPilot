@@ -4,6 +4,8 @@ import socket
 import threading
 import time
 import re
+from copy import deepcopy
+from uuid import uuid4
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -12,6 +14,7 @@ from playwright.sync_api import sync_playwright, expect
 from app.api.server import create_app
 from app.runtime_config import setting
 from app.models.analysis import GreetingPlan
+from app.models.job import JobPosting
 
 
 def main():
@@ -109,11 +112,51 @@ def main():
                 page.locator("#start").click()
                 expect(page.locator(".profile-extract")).to_contain_text("虚构导入",timeout=30000)
                 expect(page.locator("#run-status")).to_have_text("已完成",timeout=30000)
+                # 只在临时库构造 BOSS 结果，验证真实 UI 审批；此浏览器未加载扩展。
+                synthetic = deepcopy(app.state.runs.get(page.evaluate("currentRun")))
+                synthetic_id = str(uuid4())
+                synthetic.pop("id"); synthetic.pop("status")
+                synthetic["source"] = "boss"
+                synthetic["snapshot"]["results"] = synthetic["snapshot"]["results"][:2]
+                for number, row in enumerate(synthetic["snapshot"]["results"]):
+                    row["job"].update(id=f"boss-ui-{number}", source="boss", source_job_id=f"synthetic{number}",
+                        url=f"https://www.zhipin.com/job_detail/synthetic{number}.html")
+                service = app.state.boss_contacts
+                service.tracker.save_jobs([JobPosting.model_validate(row["job"]) for row in synthetic["snapshot"]["results"]])
+                app.state.runs.create(synthetic_id, synthetic)
+                app.state.runs.update(synthetic_id, "COMPLETED")
+                page.evaluate("runId=>selectRun(runId)", synthetic_id)
+                expect(page.locator("#batch-controls")).to_be_visible()
+                expect(page.locator("#results .selection input:checked")).to_have_count(0)
+                page.locator("#results .selection input").first.check()
+                page.locator("#batch-prepare").click()
+                expect(page.locator("#batch-items article")).to_have_count(1)
+                expect(page.locator("#batch-items")).to_contain_text("默认招呼")
+                page.locator("#batch-approve").click()
+                expect(page.locator("#message")).to_contain_text("请先核对 BOSS 账号")
+                assert service.next() is None
+                page.locator("#batch-confirm").check()
+                # 若另一个窗口加入待审批岗位，刷新会撤销旧勾选，必须重新核对列表。
+                service.prepare(synthetic_id, ["boss-ui-1"])
+                page.locator("#batch-refresh").click()
+                expect(page.locator("#batch-items article")).to_have_count(2)
+                expect(page.locator("#batch-confirm")).not_to_be_checked()
+                page.route("**/api/boss/status", lambda route: route.fulfill(json={"connected": True}))
+                page.locator("#batch-confirm").check()
+                page.locator("#batch-approve").click()
+                expect(page.locator("#batch-feedback")).to_contain_text("已批准")
+                assert all(a.status == "APPROVED" for a in service.list(synthetic_id))
+                page.locator("#batch-cancel").click()
+                expect(page.locator("#batch-feedback")).to_contain_text("已取消")
+                assert all(a.status == "REJECTED" for a in service.list(synthetic_id))
+                assert service.next() is None
                 Path("data").mkdir(exist_ok=True)
                 page.screenshot(path="data/dashboard-smoke.png", full_page=True)
+                page.set_viewport_size({"width":390,"height":844})
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"), "窄屏出现横向溢出"
                 assert not errors, errors
                 browser.close()
-                print("Dashboard resume extraction / single panel / current intent / scores / top-five review: OK")
+                print("Dashboard resume / scoring / batch selection / explicit approval / cancellation: OK")
         finally:
             server.should_exit = True
             thread.join(timeout=15)

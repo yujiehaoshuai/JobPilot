@@ -4,8 +4,9 @@
 <p>保持这个页面打开，然后回 JobPilot 填简历、选 BOSS 直聘，点击“帮我找岗位”。这里会自动接收搜索条件，读完后交给 AI 比较。</p>
 <section><h2>读取进度</h2><p id="status" role="status">正在连接本机程序…</p>
 <button id="pause" disabled>暂停读取</button><button id="resume" hidden>已处理好，继续读取</button>
-<p class="hint">登录、验证码或人机验证需要你在 BOSS 页面手动完成。助手不会代替你验证，也不会发消息或投递。关闭或刷新面板后，已回传的岗位仍会保留。</p></section>
-<section><h2>第一次使用</h2><p>在这个浏览器中正常登录 BOSS。助手只读取岗位，不读取 Cookie、聊天或你的账号资料。简历和 DeepSeek 密钥留在 JobPilot，不会传给此助手。</p>
+<p class="hint">登录、验证码或人机验证需要你在 BOSS 页面手动完成。关闭或刷新面板后，已回传的岗位仍会保留。</p></section>
+<section><h2>批量联系</h2><p>回 JobPilot 勾选岗位、查看操作说明，再点击批准。助手只会处理你批准的岗位，点击“立即沟通”可能发送 BOSS 账号的默认招呼并展示在线简历；不会上传附件简历或发送 AI 草稿。结果不明时停止整批，请到 BOSS 核查。</p></section>
+<section><h2>第一次使用</h2><p>在这个浏览器中正常登录 BOSS。助手不读取 Cookie、聊天或你的账号资料。简历和 DeepSeek 密钥留在 JobPilot，不会传给此助手。</p>
 <a href="https://www.zhipin.com/" target="_blank" rel="noopener noreferrer">打开 BOSS 登录</a> · <a id="dashboard" href="http://127.0.0.1:8000/" target="_blank" rel="noopener noreferrer">回到 JobPilot</a>
 <details><summary>读取遇到问题时</summary><p>可以用独立的诊断页面做普通网页对照；诊断不会自动提交搜索结果。</p><a href="panel.html" target="_blank">打开只读诊断</a></details></section>
 </main><script type="module" src="helper.mjs"></script></body></html>

@@ -33,5 +33,7 @@
   ],
   "next_selector": ".options-pages .next, .pagination .next, .pagination-next",
   "extra_selector": ".job-banner .info-primary p, .job-banner .job-tags",
-  "status_selector": ".job-banner .job-status, .job-status-text"
+  "status_selector": ".job-banner .job-status, .job-status-text",
+  "contact_selector": ".job-banner .btn-startchat, .job-banner .op-btn a, .job-banner .op-btn button",
+  "scroll_selector": ".job-list-box, .job-list-container, .search-job-result"
 }

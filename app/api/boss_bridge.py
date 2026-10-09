@@ -1,4 +1,4 @@
-"""BOSS 助手专用 API：权限只覆盖公开岗位采集，不能访问简历或执行审批。"""
+"""BOSS 助手的连接与采集 API：独立凭据不能访问简历或批准操作。"""
 
 import re
 from uuid import UUID
@@ -63,6 +63,8 @@ def install_boss_routes(app, data_dir, runs, worker, auth):
     def resume_collection(run_id: UUID, owner: str = Depends(bridge_auth)):
         bridge.resume(str(run_id))
         return {"resumed": True}
+
+    return bridge_auth
 
 
 def public_task(value):

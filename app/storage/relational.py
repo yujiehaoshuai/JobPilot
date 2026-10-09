@@ -118,6 +118,26 @@ class RelationalActionStore:
             raise ConfirmationRequiredError("审批人或审批摘要无效")
         return self.transition(action_id, "PENDING", "APPROVED" if approve else "REJECTED", decided_by=actor)
 
+    def decide_many(self, decisions, approve, actor):
+        """用户一次核对多条操作后，在一个事务中批准或取消，不能只成功一半。"""
+        results = []
+        with self.engine.begin() as conn:
+            for action_id, digest in decisions:
+                data = conn.execute(select(action_table.c.data).where(action_table.c.id == action_id)).scalar_one()
+                action = PendingAction.model_validate_json(data)
+                allowed = {"PENDING"} if approve else {"PENDING", "APPROVED"}
+                if action.status not in allowed or action.digest != digest or action.digest != action.payload.digest():
+                    raise InvalidTransitionError("岗位状态或审批内容已变化，请刷新后重新核对")
+                result = PendingAction.model_validate({**action.model_dump(),
+                    "status":"APPROVED" if approve else "REJECTED", "decided_by":actor})
+                count = conn.execute(update(action_table).where(action_table.c.id == action_id,
+                    action_table.c.status == action.status, action_table.c.digest == digest).values(
+                        status=result.status, data=result.model_dump_json())).rowcount
+                if count != 1:
+                    raise InvalidTransitionError("操作已被领取或取消，请刷新")
+                results.append(result)
+        return results
+
 
 class RelationalTracker:
     """Agent 版跟踪器；沿用相同领域模型，不修改 Phase 1 数据库。"""

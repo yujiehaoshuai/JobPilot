@@ -13,7 +13,7 @@ from app.models.job import JobPosting
 class ActionPayload(DomainModel):
     """审批界面必须展示的发送对象和正文；所有字段都参与摘要。"""
 
-    kind: Literal["send_message"] = "send_message"
+    kind: Literal["send_message", "boss_start_chat"] = "send_message"
     candidate: CandidateProfile
     job: JobPosting
     content: str = Field(min_length=1, max_length=5000)
@@ -39,3 +39,8 @@ class PendingAction(DomainModel):
     receipt: str | None = None
     resolved_by: str | None = None
     resolution_note: str | None = None
+    # 只读预检查失败可以人工继续；发放执行许可后不得自动重试。
+    execution_paused: bool = False
+    execution_owner: str | None = None
+    execution_started_at: datetime | None = None
+    execution_token_hash: str | None = None

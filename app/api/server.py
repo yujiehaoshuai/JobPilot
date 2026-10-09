@@ -112,7 +112,9 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
 
     auth = [Depends(authenticated)]
     from app.api.boss_bridge import install_boss_routes
-    install_boss_routes(app, data_dir, runs, worker, auth)
+    bridge_auth = install_boss_routes(app, data_dir, runs, worker, auth)
+    from app.api.boss_contact import install_contact_routes
+    install_contact_routes(app,data_dir,runs,actions,tracker,auth,bridge_auth)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_input(request, exc):
@@ -245,10 +247,14 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
 
     @app.post("/api/actions/{action_id}/decision", dependencies=auth)
     def decide(action_id: str, body: Decision):
+        if actions.get(action_id).payload.kind == "boss_start_chat":
+            raise HTTPException(409,"请在批量联系面板核对 BOSS 默认招呼后批准")
         return actions.decide(action_id, body.digest, body.approve, "authenticated-local-user")
 
     @app.post("/api/actions/{action_id}/resolve", dependencies=auth)
     def resolve(action_id: str, body: RecoveryDecision):
+        if actions.get(action_id).payload.kind == "boss_start_chat":
+            return app.state.boss_contacts.resolve(action_id, body.digest, body.sent, body.note)
         return resolve_after_review(actions, data_dir, action_id, body.digest, body.sent,
                                     body.note, "authenticated-local-user")
 

@@ -37,7 +37,7 @@ test("翻页后去重、逐条保存详情，不点击申请或沟通",async()=>
 test("达到数量上限时明确说明未读完，不能继续翻页",async()=>{
   const f=fixture([{ids:["a","b"],next:"available"}],{limit:1});await f.run();
   assert.equal(f.reads.length,2);assert.equal(f.clicks.length,0);
-  assert.equal(f.updates.at(-1).complete,false);assert.match(f.updates.at(-1).warning,/上限/);
+  assert.equal(f.updates.at(-1).complete,false);assert.ok(f.updates.some(x=>/上限/.test(x.warning||"")));
 });
 test("登录验证中断保留前一个岗位，不自动重试或读下一个",async()=>{
   const f=fixture([{ids:["a","blocked","c"]}],{fail:"blocked"});
@@ -60,4 +60,12 @@ test("重复页和找不到下一页都不能报告已覆盖全部",async()=>{
 test("搜索没有岗位时不预先打开空白详情页",async()=>{
   const f=fixture([{ids:[]}]);await f.run();
   assert.equal(f.tabCount(),1);assert.equal(f.updates.at(-1).finished,true);
+});
+
+test("先收集滚动产生的新编号，再读取详情，保留续页证据",async()=>{
+  const f=fixture([{ids:["a","b"],next:"scroll"},{ids:["a","b","c"]}]);
+  await f.run();
+  assert.deepEqual(f.reads.map(r=>r.tabId),[1,1,2,2,2]);
+  const samples=f.updates.filter(u=>u.page_sample).map(u=>u.page_sample);
+  assert.equal(samples[0].continuation,"scroll");assert.deepEqual(samples[1].ids,["a","b","c"]);
 });

@@ -97,6 +97,7 @@ function showState(run) {
   const more=element("details");more.append(element("summary",`查看其余 ${Math.max(0,rows.length-5)} 条岗位`));
   for (const [index,row] of rows.entries()) {
     const card = element("article",undefined,"result");
+    if(run.source==="boss" && run.status==="COMPLETED")addBossSelection(card,run.id,row.job);
     card.append(element("h3",row.job.title), element("p",`${row.job.company} · ${row.job.city || "城市未注明"}`,"hint"));
     const link = element("a","查看岗位原页"); link.href=row.job.url; link.target="_blank"; link.rel="noopener noreferrer"; card.append(link);
     showMatch(card,row.match);showReview(card,row.deep_review);
@@ -111,6 +112,7 @@ function showState(run) {
     for (const reason of row.reasons) detail.append(element("p",plainReason(reason),"hint"));
     results.append(detail);
   }
+  updateBatchControls(run);
 }
 async function refreshRuns() {
   const runs = await (await api("/api/runs")).json();

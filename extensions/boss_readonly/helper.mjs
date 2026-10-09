@@ -1,4 +1,5 @@
 import {collectSearch} from "./search.mjs";
+import {executeContact} from "./contact.mjs";
 const element = id=>document.getElementById(id);
 const fragment = new URLSearchParams(location.hash.slice(1));
 if(location.hash)history.replaceState(null,"",location.pathname);
@@ -38,6 +39,14 @@ async function poll() {
     } else if(paused) {
       pausedId=paused.id;sessionStorage.setItem("boss-paused",pausedId);
       element("resume").hidden=false;say(paused.message);
+    } else {
+      const {action}=await api("/api/boss/contacts/next");
+      if(action) {
+        say(`正在处理你已批准的岗位：${action.title} · ${action.company}`);
+        const outcome=await executeContact(chrome,action,config,api);
+        say(outcome.state==="confirmed"?"BOSS 已显示继续沟通。请回 JobPilot 查看记录，附件简历没有自动上传。"
+          :"批量联系已暂停，请回 JobPilot 查看原因或核查结果。不会自动重发。");
+      }
     }
   } catch(error) {say(error.message);}
   finally {busy=false;if(!stoppedPolling)setTimeout(poll,3000);}

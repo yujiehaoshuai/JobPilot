@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JobPilot · 找适合你的工作</title><link rel="stylesheet" href="/static/style.css">
-<script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script><script src="/static/boss.js" defer></script><script src="/static/settings.js" defer></script></head>
+<script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script><script src="/static/boss.js" defer></script><script src="/static/batch.js" defer></script><script src="/static/settings.js" defer></script></head>
 <body>
 <header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>帮你看岗位，也帮你看差距</small></div></div><span id="connection-status" class="badge">正在连接本机程序</span></header>
 <main>
@@ -32,7 +32,7 @@
 <p class="hint">添加一次即可。以后仍在本页填写简历和意向，不需要复制任何连接码。需要登录或验证时会暂停，等你处理。</p></details></div>
 <button id="start" type="submit">帮我找岗位</button>
 <p id="mode-hint" class="hint"></p>
-<p class="hint">AI 会读取你的简历和岗位说明，并按服务商规则计费。结果保存在本机；不会发消息或投递。</p>
+<p class="hint">AI 会读取你的简历和岗位说明，并按服务商规则计费。搜索和评分只读岗位；联系招聘方需要你另外选择岗位并批准。</p>
 </form>
 <details id="ai-settings"><summary><strong>连接 DeepSeek</strong><span id="ai-status" class="hint">尚未设置</span></summary>
 <p class="hint">首次使用时填写一次，之后不用重复设置。</p>
@@ -44,7 +44,11 @@
 </aside><div>
 <section class="panel"><div class="row between"><h2>值得优先看的岗位</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">结果自动保存在本机，下次打开还能看。</p>
 <div class="steps"><span>理解简历</span><span>寻找岗位</span><span>比较评分</span><span>复核前几名</span></div><div id="run-detail"></div><button id="resume" class="secondary" hidden>处理好问题，继续这次搜索</button>
-<div id="results"><div class="empty">你的推荐岗位会出现在这里。<br>每个结果都会告诉你：哪些技能已有经历，哪些还缺少依据。</div></div></section>
+<div id="batch-controls" hidden><p>勾选想联系的岗位，再统一核对。一次最多 20 个，默认不勾选任何岗位。</p><button id="batch-prepare" class="secondary">核对所选岗位，准备批量联系</button></div>
+<div id="results"><div class="empty">你的推荐岗位会出现在这里。<br>每个结果都会告诉你：哪些技能已有经历，哪些还缺少依据。</div></div>
+<div id="batch-panel" hidden><h3>批量联系招聘方</h3><p class="hint">BOSS 本轮执行的是“立即沟通”，不是附件简历投递。下方批准以后才会操作真实账号。</p>
+<div id="batch-items"></div><div id="batch-approval" hidden><label class="selection"><input type="checkbox" id="batch-confirm">我已核对以上岗位，并在 BOSS 核对了本人账号、默认招呼和在线简历，确认现在联系这些招聘方。</label>
+<button id="batch-approve">批准并批量联系以上岗位</button></div><button id="batch-cancel" class="secondary" hidden>取消尚未执行的操作</button><button id="batch-refresh" class="quiet">刷新联系记录</button><p id="batch-feedback" role="status" class="hint"></p></div></section>
 <section class="panel"><div class="row between"><h2>以前的搜索</h2><button id="refresh" class="quiet">刷新记录</button></div><div id="runs" class="task-list"><p class="muted">开始搜索后，记录会出现在这里。</p></div></section>
 </div></div></main><footer>岗位是否仍在招聘，请到原网站核对。匹配依据来自你填写的资料。</footer>
 </body></html>
