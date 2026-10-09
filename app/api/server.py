@@ -114,7 +114,7 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     from app.api.boss_bridge import install_boss_routes
     bridge_auth = install_boss_routes(app, data_dir, runs, worker, auth)
     from app.api.boss_contact import install_contact_routes
-    install_contact_routes(app,data_dir,runs,actions,tracker,auth,bridge_auth)
+    install_contact_routes(app,data_dir,runs,actions,tracker,auth,bridge_auth,url)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_input(request, exc):

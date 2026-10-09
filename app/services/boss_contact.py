@@ -18,10 +18,25 @@ CONTACT_NOTICE = ("点击此岗位的“立即沟通”。BOSS 可能向招聘�
 class BossContactService:
     """单机批量队列使用既有动作表，无需额外数据库或后台发送线程。"""
 
-    def __init__(self, actions, runs, tracker, data_dir):
+    def __init__(self, actions, runs, tracker, data_dir, database_url=None):
         self.actions, self.runs, self.tracker = actions, runs, tracker
         self.data_dir = data_dir
+        self.database_url = database_url
         self.lock = FileLock(str(data_dir / "boss-contact.lock"))
+
+    def _sync(self, actions):
+        """检查点与队列使用同一把锁；失败时不发出点击许可，下次可补齐。"""
+        from app.workflow.contact_graph import sync_contact_workflows
+        with self.lock:
+            current = [self.actions.get(action.id) for action in actions]
+            return sync_contact_workflows(self.actions, current, self.data_dir, self.database_url)
+
+    def workflow(self, action_id):
+        """返回本机可查看的恢复位置；扩展无权读取或直接恢复此图。"""
+        action = self.actions.get(action_id)
+        if action.payload.kind != "boss_start_chat":
+            raise InvalidTransitionError("此操作不属于 BOSS 联系流程")
+        return self._sync([action])[action_id]
 
     def prepare(self, run_id, job_ids):
         """从已保存的搜索结果准备操作，忽略前端自报的标题、公司和正文。
@@ -55,6 +70,7 @@ class BossContactService:
                 action = self.actions.prepare(run_id, payload)
                 prepared.append(action)
                 existing.append(action)
+            self._sync(prepared)
         return {"actions":prepared,"skipped":skipped,"notice":CONTACT_NOTICE}
 
     def decide(self, decisions, approve, acknowledged):
@@ -66,24 +82,26 @@ class BossContactService:
         for item in decisions:
             if self.actions.get(item.id).payload.kind != "boss_start_chat":
                 raise ConfirmationRequiredError("批量入口只能处理 BOSS 联系操作")
-        return self.actions.decide_many([(item.id,item.digest) for item in decisions], approve, "authenticated-local-user")
+        with self.lock:
+            actions = self.actions.decide_many([(item.id,item.digest) for item in decisions], approve, "authenticated-local-user")
+            self._sync(actions)
+            return actions
 
     def list(self, run_id=None):
         """执行许可超时只能进入待核查，服务或面板重启不能导致自动重发。"""
-        result = []
-        for action in self.actions.list(run_id):
-            if action.payload.kind != "boss_start_chat":
-                continue
-            if action.status == "EXECUTING" and action.execution_started_at and (
-                    datetime.now(UTC) - action.execution_started_at).total_seconds() > 90:
-                try:
+        with self.lock:
+            result = []
+            for action in self.actions.list(run_id):
+                if action.payload.kind != "boss_start_chat":
+                    continue
+                if action.status == "EXECUTING" and action.execution_started_at and (
+                        datetime.now(UTC) - action.execution_started_at).total_seconds() > 90:
                     action = self.actions.transition(action.id,"EXECUTING","UNCERTAIN",
                         receipt="执行许可已发出，但没有收到可靠回执，请到 BOSS 核查；不会自动重发")
-                except InvalidTransitionError:
-                    action = self.actions.get(action.id)
-            result.append(action)
-            self.sync_tracker(action)
-        return result
+                result.append(action)
+                self.sync_tracker(action)
+            self._sync(result)
+            return result
 
     def next(self):
         """串行处理获批岗位；有未核查结果时，其他批次也一起等待。"""
@@ -92,7 +110,9 @@ class BossContactService:
         if any(a.status in {"EXECUTING","UNCERTAIN"} or a.status == "APPROVED" and a.execution_paused for a in actions):
             return None
         approved = sorted((a for a in actions if a.status == "APPROVED"), key=lambda a:a.created_at)
-        return self.public(approved[0]) if approved else None
+        if approved and self.workflow(approved[0].id)["stage"] == "READY":
+            return self.public(approved[0])
+        return None
 
     @staticmethod
     def public(action):
@@ -114,37 +134,46 @@ class BossContactService:
                 raise ConfirmationRequiredError("当前网页与批准的岗位或操作不一致，禁止点击")
             token = secrets.token_urlsafe(32)
             started = datetime.now(UTC)
-            self.actions.transition(action_id,"APPROVED","EXECUTING",execution_owner=owner,
+            executing = self.actions.transition(action_id,"APPROVED","EXECUTING",execution_owner=owner,
                 execution_started_at=started,execution_token_hash=hashlib.sha256(token.encode()).hexdigest())
+            # 先持久化“等待回执”，再把许可交给浏览器。图保存失败时不能点击。
+            self._sync([executing])
         return dict(token=token,expires_at=int(started.timestamp()*1000)+15000,**self.public(action))
 
     def defer(self, action_id, digest, message):
         """尚未点击时保留批准并暂停，等待用户处理登录或页面问题。"""
-        action = self.actions.get(action_id)
-        if action.payload.kind != "boss_start_chat" or action.digest != digest:
-            raise ConfirmationRequiredError("操作摘要不一致")
-        return self.actions.transition(action_id,"APPROVED","APPROVED",execution_paused=True,receipt=message)
+        with self.lock:
+            action = self.actions.get(action_id)
+            if action.payload.kind != "boss_start_chat" or action.digest != digest:
+                raise ConfirmationRequiredError("操作摘要不一致")
+            action = self.actions.transition(action_id,"APPROVED","APPROVED",execution_paused=True,receipt=message)
+            self._sync([action])
+            return action
 
     def resume(self, action_id, digest):
         """人工继续只解除点击前的暂停，不能重新执行已领取的动作。"""
-        action = self.actions.get(action_id)
-        if action.payload.kind != "boss_start_chat" or action.digest != digest:
-            raise ConfirmationRequiredError("操作摘要不一致")
-        return self.actions.transition(action_id,"APPROVED","APPROVED",execution_paused=False,receipt=None)
+        with self.lock:
+            action = self.actions.get(action_id)
+            if action.payload.kind != "boss_start_chat" or action.digest != digest:
+                raise ConfirmationRequiredError("操作摘要不一致")
+            action = self.actions.transition(action_id,"APPROVED","APPROVED",execution_paused=False,receipt=None)
+            self._sync([action])
+            return action
 
     def finish(self, action_id, owner, token, confirmed):
         """只接受原执行者的回执；没有可靠确认时，等待人工核查。"""
-        action = self.actions.get(action_id)
-        if (action.payload.kind != "boss_start_chat" or action.execution_owner != owner
-                or not secrets.compare_digest(action.execution_token_hash or "",hashlib.sha256(token.encode()).hexdigest())):
-            raise ConfirmationRequiredError("回执与执行许可不匹配")
-        if action.status in {"SUCCEEDED","UNCERTAIN"}:
+        with self.lock:
+            action = self.actions.get(action_id)
+            if (action.payload.kind != "boss_start_chat" or action.execution_owner != owner
+                    or not secrets.compare_digest(action.execution_token_hash or "",hashlib.sha256(token.encode()).hexdigest())):
+                raise ConfirmationRequiredError("回执与执行许可不匹配")
+            # 重传回执可以补齐检查点与 Tracker，但不能重新点击或改写已核查结果。
+            if action.status not in {"SUCCEEDED","UNCERTAIN"}:
+                action = self.actions.transition(action_id,"EXECUTING","SUCCEEDED" if confirmed else "UNCERTAIN",
+                    receipt="原岗位显示“继续沟通”，已发起联系；不代表附件简历已投递" if confirmed else "未得到可靠页面确认，请人工核查，禁止自动重试")
             self.sync_tracker(action)
-            return action  # 回执可以重复传输，但不再次点击。
-        action = self.actions.transition(action_id,"EXECUTING","SUCCEEDED" if confirmed else "UNCERTAIN",
-            receipt="原岗位显示“继续沟通”，已发起联系；不代表附件简历已投递" if confirmed else "未得到可靠页面确认，请人工核查，禁止自动重试")
-        self.sync_tracker(action)
-        return action
+            self._sync([action])
+            return action
 
     def resolve(self, action_id, digest, sent, note):
         """只有执行窗口结束后才能人工核查，避免用户取消时浏览器仍在点击。"""
@@ -156,6 +185,7 @@ class BossContactService:
             action = resolve_after_review(self.actions, self.data_dir,
                 action_id, digest, sent, note, "authenticated-local-user")
             self.sync_tracker(action)
+            self._sync([action])
             return action
 
     def sync_tracker(self, action):

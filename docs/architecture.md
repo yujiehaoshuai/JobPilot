@@ -62,7 +62,19 @@ Dashboard 默认 `analysis_only=true`；CLI 使用 `--analysis-only`。该模式
 
 原岗位显示“继续沟通/已沟通”才记为 SUCCEEDED 并推进 Tracker 至 CONTACTED。回执不明或发出许可后 90 秒无回执进入 UNCERTAIN，阻止后续批次和自动重试；用户在网站核查后才可记录结果。网页需要人工处理但尚未发放许可时保持 APPROVED 并暂停，可继续或取消。进程重启保留全部状态；若动作成功已保存而 Tracker 尚未更新，重复回执或后续查询会补齐跟踪记录。旧 send_message 草稿沿用原摘要算法。
 
-搜索图的 Checkpoint 继续负责提炼、读取和匹配恢复；批量联系使用独立的持久 PendingAction 队列，尚未迁回 LangGraph 图内。当前按本机单个 BOSS 账号跨任务防重复联系；账号身份自动核验、多账号调度、附件投递、自定义消息和真实端到端联系验收仍未完成。
+搜索图的 Checkpoint 继续负责提炼、读取和匹配恢复；每个批量动作通过 `contact_graph.py` 进入独立的 LangGraph 联系图，并以原搜索 run_id 关联。图只理解 PendingAction 状态，不依赖网站、选择器或浏览器。`observe → wait_for_event → observe` 循环使用 Conditional Edge 和 Interrupt，覆盖待批准、待浏览器、待执行、待回执、待核查；拒绝或成功后进入 END。直接 Resume 不会改写批准状态。
+
+联系图以 `action:<动作编号>` 区分线程，与搜索图共用 `checkpoints.py` 选择的 SQLite/PostgreSQL 后端。动作表仍是批准与单次领取的权威记录，图保存可恢复位置；只有图到达 READY 才开放领取，先保存 EXECUTING 检查点再把许可交给扩展。两次数据库提交之间进程中断时，以动作表补齐图，不能为已领取动作再次发许可。状态不变的轮询不新增检查点。主 API 提供 `/api/boss-actions/{id}/workflow` 查看恢复位置，扩展凭据不能访问；页面继续只显示普通中文状态。
+
+```mermaid
+flowchart LR
+    A[observe 读取持久动作] --> B{当前状态}
+    B -->|等待批准、浏览器或人工核查| C[wait_for_event 保存位置并暂停]
+    C -->|用户决策或浏览器回执| A
+    B -->|已成功或已拒绝| D[END]
+```
+
+当前按本机单个 BOSS 账号跨任务防重复联系；账号身份自动核验、多账号调度、附件投递、自定义消息和真实端到端联系验收仍未完成。
 
 ## 证据和副作用约束
 

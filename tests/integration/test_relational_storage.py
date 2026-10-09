@@ -134,3 +134,20 @@ def test_postgres_checkpoint_roundtrip(tmp_path):
         assert graph.get_state(config).next == ("review",)
         assert graph.get_state(config).values["index"] == 1
         assert actions.get(action.id).status == "SUCCEEDED"
+    # 联系图也必须使用显式 PostgreSQL 后端，不能悄悄落入本机 SQLite。
+    from app.workflow.contact_graph import sync_contact_workflows
+    from app.models.action import ActionPayload
+    connection = database_engine(url)
+    try:
+        store = RelationalActionStore(connection)
+        job = action.payload.job.model_copy(update={"id": str(uuid4()), "source": "boss",
+            "source_job_id": "postgres-fixture", "url": "https://www.zhipin.com/job_detail/postgres-fixture.html"})
+        pending = store.prepare(str(uuid4()), ActionPayload(kind="boss_start_chat", candidate=profile,
+            job=job, content="仅用于专用数据库的虚构测试，不操作网站", evidence_ids=[], simulated=False))
+        view = sync_contact_workflows(store, [pending], tmp_path, url)[pending.id]
+        assert view["stage"] == "WAITING_APPROVAL"
+        rejected = store.decide(pending.id, pending.digest, False, "postgres-test-human")
+        assert sync_contact_workflows(store, [rejected], tmp_path, url)[pending.id]["stage"] == "COMPLETED"
+        assert not (tmp_path / "checkpoints.db").exists()
+    finally:
+        connection.dispose()

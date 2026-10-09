@@ -44,8 +44,8 @@ class ContactReceipt(DomainModel):
     confirmed: bool = Field(strict=True)
 
 
-def install_contact_routes(app,data_dir,runs,actions,tracker,auth,bridge_auth):
-    service = BossContactService(actions,runs,tracker,data_dir)
+def install_contact_routes(app,data_dir,runs,actions,tracker,auth,bridge_auth,database_url=None):
+    service = BossContactService(actions,runs,tracker,data_dir,database_url)
     app.state.boss_contacts = service
 
     @app.post("/api/runs/{run_id}/boss-actions",dependencies=auth)
@@ -59,6 +59,10 @@ def install_contact_routes(app,data_dir,runs,actions,tracker,auth,bridge_auth):
     @app.post("/api/boss-actions/decision",dependencies=auth)
     def decide(body: BatchDecision):
         return service.decide(body.actions,body.approve,body.platform_details_confirmed)
+
+    @app.get("/api/boss-actions/{action_id}/workflow",dependencies=auth)
+    def workflow(action_id: UUID):
+        return service.workflow(str(action_id))
 
     @app.post("/api/boss-actions/{action_id}/resume",dependencies=auth)
     def resume(action_id: UUID,body: ActionRef):

@@ -2,7 +2,7 @@
 
 from contextlib import contextmanager
 from pathlib import Path
-from langgraph.checkpoint.sqlite import SqliteSaver
+from app.workflow.checkpoints import open_checkpointer
 from app.llm.client import create_llm
 from app.storage.tracker import SQLiteTracker
 from app.storage.actions import ActionStore
@@ -61,12 +61,7 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
             # 保留 Phase 5 已有 SQLite 文件；启用新后端必须明确配置。
             actions = ActionStore(data_dir / "actions.db")
             tracker = stack.enter_context(SQLiteTracker(data_dir / "tracker.db"))
-        if database_url and database_url.startswith("postgresql"):
-            from langgraph.checkpoint.postgres import PostgresSaver
-            uri = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
-            saver = stack.enter_context(PostgresSaver.from_conn_string(uri))
-        else:
-            saver = stack.enter_context(SqliteSaver.from_conn_string(str(data_dir / "checkpoints.db")))
+        saver = stack.enter_context(open_checkpointer(data_dir, database_url))
         executor = MockActionExecutor() if source == "mock" else UnverifiedPlatformExecutor()
         yield build_graph(adapter, client, actions,
                           ApprovalService(actions, executor), tracker, saver), actions

@@ -11,10 +11,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.server import create_app
-from app.api.boss_contact import ObservedContact
+from app.api.boss_contact import ObservedContact, ActionRef
 from app.exceptions import ConfirmationRequiredError
 from app.services.boss_contact import BossContactService
 from app.models.action import ActionPayload
+from app.workflow.checkpoints import open_checkpointer
+from app.workflow.contact_graph import build_contact_graph
+from langgraph.types import Command
 
 
 @pytest.fixture
@@ -199,3 +202,121 @@ def test_two_helpers_cannot_claim_the_same_approval(contact_env):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert sorted(pool.map(claim, ["helper-a", "helper-b"])) == ["blocked", "permitted"]
+
+
+def test_contact_graph_interrupts_resume_and_approval_boundary(contact_env, tmp_path):
+    env = contact_env
+    client, service, _, main, bridge = env
+    action = prepare(env, ("boss-0",))[0]
+    path = f"/api/boss-actions/{action['id']}/workflow"
+    assert client.get(path, headers=bridge).status_code == 401
+    state = client.get(path, headers=main).json()
+    assert state["stage"] == "WAITING_APPROVAL"
+    assert state["interrupts"][0]["kind"] == "approval"
+    assert client.get(path, headers=main).json()["checkpoint_id"] == state["checkpoint_id"]
+    # 即便直接恢复图，也只能重新读取尚未批准的事实，不能替用户同意。
+    config = {"configurable": {"thread_id": "action:" + action["id"]}}
+    with open_checkpointer(tmp_path) as saver:
+        graph = build_contact_graph(service.actions, saver)
+        graph.invoke(Command(resume=True), config)
+    assert service.workflow(action["id"])["stage"] == "WAITING_APPROVAL"
+    assert service.actions.get(action["id"]).status == "PENDING"
+    decide(env, [action])
+    assert service.workflow(action["id"])["stage"] == "READY"
+    service.defer(action["id"], action["digest"], "请手动登录")
+    assert service.workflow(action["id"])["stage"] == "WAITING_BROWSER"
+    service.resume(action["id"], action["digest"])
+    ticket = permit(env, action).json()
+    state = service.workflow(action["id"])
+    assert state["stage"] == "EXECUTING" and state["interrupts"][0]["kind"] == "contact_receipt"
+    assert ticket["token"] not in json.dumps(state)
+    assert "candidate" not in json.dumps(state)
+    service.finish(action["id"], bridge["X-JobPilot-Reader"], ticket["token"], False)
+    assert service.workflow(action["id"])["stage"] == "WAITING_REVIEW"
+    service.resolve(action["id"], action["digest"], False, "我已核查没有发起沟通")
+    assert service.workflow(action["id"])["stage"] == "COMPLETED"
+    assert service.workflow(action["id"])["observed"]["status"] == "REJECTED"
+
+
+def test_restart_repairs_approval_saved_before_checkpoint(contact_env, tmp_path, monkeypatch):
+    env = contact_env
+    _, service, _, _, _ = env
+    action = prepare(env, ("boss-0",))[0]
+    def crash(_):
+        raise RuntimeError("模拟批准已落盘，检查点尚未更新就退出")
+    monkeypatch.setattr(service, "_sync", crash)
+    with pytest.raises(RuntimeError):
+        service.decide([ActionRef(id=action["id"], digest=action["digest"])], True, True)
+    assert service.actions.get(action["id"]).status == "APPROVED"
+    restored = BossContactService(service.actions, service.runs, service.tracker, tmp_path)
+    assert restored.next()["id"] == action["id"]
+    assert restored.workflow(action["id"])["stage"] == "READY"
+
+
+def test_lost_permit_checkpoint_never_reissues_permission(contact_env, tmp_path, monkeypatch):
+    env = contact_env
+    _, service, _, _, _ = env
+    action = prepare(env, ("boss-0",))[0]
+    decide(env, [action])
+    original = service._sync
+    def crash_after_claim(actions):
+        if any(a.status == "EXECUTING" for a in actions):
+            raise RuntimeError("模拟领取已保存，但许可尚未返回浏览器")
+        return original(actions)
+    monkeypatch.setattr(service, "_sync", crash_after_claim)
+    with pytest.raises(RuntimeError):
+        permit(env, action)
+    restored = BossContactService(service.actions, service.runs, service.tracker, tmp_path)
+    assert restored.next() is None
+    assert restored.workflow(action["id"])["stage"] == "EXECUTING"
+    restored.actions.transition(action["id"], "EXECUTING", "EXECUTING",
+        execution_started_at=datetime.now(UTC) - timedelta(seconds=91))
+    assert restored.next() is None
+    assert restored.workflow(action["id"])["stage"] == "WAITING_REVIEW"
+
+
+def test_success_checkpoint_recovers_without_resending_and_allows_new_selection(contact_env, tmp_path, monkeypatch):
+    env = contact_env
+    _, service, _, _, bridge = env
+    action = prepare(env, ("boss-0",))[0]
+    decide(env, [action])
+    ticket = permit(env, action).json()
+    original = service._sync
+    def crash_after_receipt(actions):
+        if any(a.status == "SUCCEEDED" for a in actions):
+            raise RuntimeError("模拟成功回执已保存，检查点尚未保存")
+        return original(actions)
+    monkeypatch.setattr(service, "_sync", crash_after_receipt)
+    with pytest.raises(RuntimeError):
+        service.finish(action["id"], bridge["X-JobPilot-Reader"], ticket["token"], True)
+    restored = BossContactService(service.actions, service.runs, service.tracker, tmp_path)
+    assert restored.next() is None
+    assert restored.workflow(action["id"])["stage"] == "COMPLETED"
+    assert restored.tracker.list_applications()[0].status == "CONTACTED"
+    new = restored.prepare(action["run_id"], ["boss-1"])["actions"][0]
+    assert restored.workflow(new.id)["stage"] == "WAITING_APPROVAL"
+    assert restored.workflow(action["id"])["observed"]["status"] == "SUCCEEDED"
+
+
+def test_restart_between_graph_nodes_observes_new_database_decision(contact_env, tmp_path):
+    action = prepare(contact_env, ("boss-0",))[0]
+    service = contact_env[1]
+    config = {"configurable": {"thread_id": "action:" + action["id"]}}
+    # 重现 observe 已保存、wait_for_event 尚未开始的中间检查点。
+    with open_checkpointer(tmp_path) as saver:
+        graph = build_contact_graph(service.actions, saver)
+        graph.update_state(config, {"stage": "WAITING_APPROVAL"}, as_node="observe")
+        assert graph.get_state(config).next == ("wait_for_event",)
+    service.actions.decide(action["id"], action["digest"], True, "test-human")
+    assert service.workflow(action["id"])["stage"] == "READY"
+
+
+def test_contact_graph_does_not_depend_on_recruitment_platform(contact_env, tmp_path, candidate, make_job):
+    from app.workflow.contact_graph import sync_contact_workflows
+    store = contact_env[1].actions
+    action = store.prepare(str(uuid4()), ActionPayload(candidate=candidate, job=make_job(),
+        content="虚构消息，不发送", evidence_ids=[], simulated=True))
+    views = sync_contact_workflows(store, [action], tmp_path)
+    assert views[action.id]["stage"] == "WAITING_APPROVAL"
+    rejected = store.decide(action.id, action.digest, False, "test-human")
+    assert sync_contact_workflows(store, [rejected], tmp_path)[action.id]["stage"] == "COMPLETED"
