@@ -66,4 +66,6 @@ cd D:\JobPilot
 
 仍未完成：BOSS 更多搜索条件及长期稳定性验收、附件简历投递及自定义消息、Docker 与 PostgreSQL 本机部署验收。模型提炼与职业方向判断可能有误；当前排序尚无大规模人工标注评估。用户当前收尾范围是两条真实联系和 Docker/PostgreSQL 验收，不再扩展其余功能。
 
+Docker Desktop 已于 2026-10-12 安装成功；本机虚拟机平台仍需重启生效，容器和 PostgreSQL 尚未启动验收。重启后打开 Docker Desktop，再运行 `.\.venv\Scripts\python.exe -m scripts.docker_smoke`。详细接续说明见 [验收记录](docs/verification.md)。
+
 [安装、运行与 Demo](docs/demo.md) · [架构](docs/architecture.md) · [阶段提交](docs/phases.md) · [验收与限制](docs/verification.md)

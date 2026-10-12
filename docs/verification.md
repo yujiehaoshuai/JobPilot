@@ -1,5 +1,15 @@
 # 独立验收与剩余接手事项
 
+## Docker 已安装，等待系统重启（2026-10-12）
+
+真实联系验收与提示改动提交为 `83354db`。Docker 官方安装包已下载并验证 Docker Inc 的有效数字签名，以当前用户方式安装成功，退出码 0；Docker CLI 29.8.2、Compose 5.5.1 可以运行。安装包和本机报告保存在被忽略的 data/deployment/installers/，不修改 Python 或现有 .venv。
+
+Docker Desktop 已启动，但引擎明确返回 `Virtual Machine Platform not enabled / No virtualization available`；WSL 2 返回 `HCS_E_SERVICE_NOT_AVAILABLE`。Windows 功能查询已显示 VirtualMachinePlatform 启用，当前 HypervisorPresent 仍为 False，并存在 RebootPending。需要用户保存工作、手动重启，让组件生效。未创建验收容器或 PostgreSQL 数据库，不能把安装完成当作部署通过。
+
+重启后打开 Docker Desktop，确认引擎运行，再在项目目录执行 `docker info` 和 `.\.venv\Scripts\python.exe -m scripts.docker_smoke`。若新终端还未识别 docker，CLI 位于 `%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin\docker.exe`。验收沿用现有隔离 Compose 脚本，完成后即按用户要求收尾，不再扩展功能。联系队列中没有未执行或待核查动作，无须重新发送已经成功的两条联系。
+
+安装方式依据 [Docker 官方 Windows 安装说明](https://docs.docker.com/desktop/setup/install/windows-install/)，只安装了一份 Docker Desktop。
+
 ## 两条真实联系验收（2026-10-12）
 
 用户明确授权任选两条岗位验证“立即沟通”。旧账号首次操作被完善基础信息拦住，程序记录 UNCERTAIN 并阻止后续联系；用户本人确认没有发出后才记录人工核查并结束旧动作。切换账号前取消所有未执行操作。随后两条旧链接未通过点击前核对，用户报告页面为首页、空白或下线提示；两条均取消，没有申请点击许可，不能断言具体跳转原因。
@@ -81,7 +91,7 @@ Python 293 项通过、1 项专用 PostgreSQL 跳过；32 项扩展脚本测试�
 
 结束时清理本次项目创建的容器与数据卷，不清理用户的 JobPilot 部署。报告和分步日志保存在 `data/deployment/<随机项目名>/`，不提交 Git。退出码 0 表示完整通过，1 表示某一步失败，2 表示本机未找到 Docker；中断或 Docker 守护进程故障时应查看报告中的清理结果，再按报告的精确项目名处理遗留资源。
 
-本机实际检查仍为“未找到 Docker”，因此不能宣称镜像或容器已通过。浏览器沙箱不会因验收失败而被关闭。Compose 的健康等待使用官方 [`up --wait`](https://docs.docker.com/reference/cli/docker/compose/up/) 能力。
+本机 2026-10-12 已安装 Docker Desktop，但虚拟机平台需要重启才能生效，因此尚不能宣称镜像或容器已通过。浏览器沙箱不会因验收失败而被关闭。Compose 的健康等待使用官方 [`up --wait`](https://docs.docker.com/reference/cli/docker/compose/up/) 能力。
 
 ## CI 配置
 
