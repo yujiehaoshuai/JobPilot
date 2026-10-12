@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
 import {readFileSync} from "node:fs";
-import {contactOnPage,executeContact} from "../../extensions/boss_readonly/contact.mjs";
+import {contactOnPage,executeContact,contactPauseMessage} from "../../extensions/boss_readonly/contact.mjs";
 
 const config=JSON.parse(readFileSync(new URL("../../extensions/boss_readonly/selectors.json",import.meta.url)));
 const action={id:"fixture-action",digest:"a".repeat(64),job_id:"fixture1",title:"虚构岗位",company:"虚构公司",
@@ -46,10 +46,10 @@ test("岗位或公司变化、验证框、多按钮、已沟通都禁止点击",
   }
 });
 
-function executorFixture({preflight="ready",after="already_contacted",lostPermit=false,clickThrows=false}={}) {
+function executorFixture({preflight="ready",after="already_contacted",lostPermit=false,clickThrows=false,currentUrl=action.url,pendingUrl}={}) {
   const calls=[],injections=[];
   let clicked=false;
-  const api={tabs:{create:async()=>({id:1}),get:async()=>({id:1,url:action.url,status:"loading"})},
+  const api={tabs:{create:async()=>({id:1}),get:async()=>({id:1,url:currentUrl,pendingUrl,status:"loading"})},
     scripting:{executeScript:async spec=>{
       injections.push(spec);
       assert.equal(spec.func,contactOnPage);assert.equal(spec.world,"ISOLATED");
@@ -79,5 +79,23 @@ test("点击异常或没有可靠结果只发不确定回执，绝不再次点�
   for(const options of [{clickThrows:true},{after:"ready"},{after:"verification"},{after:"wrong_page"}]) {
     const f=executorFixture(options);assert.equal((await f.run()).state,"uncertain");
     assert.equal(f.calls.at(-1).body.confirmed,false);assert.equal(f.injections.filter(s=>s.args[2]).length,1);
+  }
+});
+
+test("跳回首页或尚在跳转时明确暂停，不读取旧文档或申请点击许可",async()=>{
+  for(const [options,reason] of [[{currentUrl:"https://www.zhipin.com/"},"没有停留"],
+    [{pendingUrl:action.url},"仍在跳转"]]) {
+    const f=executorFixture(options);assert.equal((await f.run()).state,"paused");
+    assert.equal(f.injections.length,0);assert.equal(f.calls.length,1);
+    assert.ok(f.calls[0].path.endsWith("pause"));assert.ok(f.calls[0].body.message.includes(reason));
+  }
+});
+
+test("暂停提示区分缺字段、岗位变化和多个按钮，不泄露网页正文",()=>{
+  for(const [options,reason] of [[{title:""},"未读到"],[{title:"别的岗位"},"岗位名称"],
+    [{company:"别的公司"},"公司名称"],[{count:2},"多个"],[{count:0},"没有可用"]]) {
+    const page=pageFixture(options),observed=page.run();
+    const message=contactPauseMessage(observed,"detail");
+    assert.ok(message.includes(reason));assert.ok(!message.includes("别的"));assert.equal(page.clicks(),0);
   }
 });
