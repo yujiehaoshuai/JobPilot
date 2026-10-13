@@ -1,6 +1,7 @@
 """不依赖 Docker 守护进程的部署预检；不能代替实际镜像构建与容器启动。"""
 
 from pathlib import Path
+import json
 import yaml
 
 
@@ -11,6 +12,10 @@ def main():
     assert app["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
     assert app["ports"] == ["127.0.0.1:${JOBPILOT_HTTP_PORT:-8000}:8000"]
     assert "POSTGRES_PASSWORD:?" in Path("compose.yaml").read_text("utf-8")
+    assert app["security_opt"] == ["seccomp=./docker/chromium-seccomp.json"]
+    profile = json.loads(Path("docker/chromium-seccomp.json").read_text("utf-8"))
+    assert profile["defaultAction"] == "SCMP_ACT_ERRNO"
+    assert not app.get("privileged") and "SYS_ADMIN" not in app.get("cap_add", [])
     for name in [".env", "data", "profiles", ".git"]:
         assert name in Path(".dockerignore").read_text("utf-8").splitlines()
     assert "python:3.12-" in Path("Dockerfile").read_text("utf-8")

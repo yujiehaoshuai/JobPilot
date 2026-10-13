@@ -2,7 +2,7 @@
 
 实习僧主线已经跑通，牛客复用同一套后端也已通过真实验收；阅读时先沿下面的一条主线走。Mock、fixtures 和测试用于验证行为；审批、MCP、PostgreSQL、Docker 等扩展模块可以后读，不需要一开始全部理解。
 
-BOSS 普通扩展读取也已跑通。阅读批量联系功能时按 `app/web/batch.js`（用户选岗位）→ `app/api/boss_contact.py`（区分审批与扩展权限）→ `app/services/boss_contact.py`（状态与防重）→ `app/workflow/contact_graph.py`（等待与恢复）→ `extensions/boss_readonly/contact.mjs`（核对网页后单次点击）顺序看。暂不支持附件简历投递，首次真实联系待本人批准后验收。
+BOSS 普通扩展读取也已跑通。阅读批量联系功能时按 `app/web/batch.js`（用户选岗位）→ `app/api/boss_contact.py`（区分审批与扩展权限）→ `app/services/boss_contact.py`（状态与防重）→ `app/workflow/contact_graph.py`（等待与恢复）→ `extensions/boss_readonly/contact.mjs`（核对网页后单次点击）顺序看。两条获批真实联系及检查点读回已通过；暂不支持附件简历投递。
 
 | 顺序 | 文件 | 要弄明白的问题 |
 | --- | --- | --- |
@@ -245,6 +245,10 @@ JobPilot/
 │   │   ├── test_storage.py
 │   │   └── test_worker_queue.py
 │   └── conftest.py
+├── docker/
+│   ├── chromium-seccomp.json
+│   ├── LICENSE.playwright
+│   └── NOTICE.txt
 ├── .dockerignore
 ├── .env.example
 ├── .gitattributes
@@ -290,6 +294,7 @@ JobPilot/
 | app/evaluation | 合成金标数据、指标范围、恢复场景和用量统计 |
 | app/evaluation/gates.py | 零幻觉门禁、有效分母和可配置质量阈值 |
 | scripts/recovery_smoke.py、scripts/docker_smoke.py | 真实 HTTP 重启恢复和隔离部署验收 |
+| compose.yaml、docker/chromium-seccomp.json | 服务启动顺序、数据卷与开启浏览器沙箱所需的容器配置 |
 | scripts | 可单独运行的关键功能演示，不是生产入口 |
 
 ## 推荐学习顺序
@@ -321,7 +326,7 @@ JobPilot/
 9. **评估分母与范围**：金标样本、工具路由、合成页面和真实网站不能混成一个成功率；无数据时保留未知。
 10. **按规模选择可靠性机制**：单机文件锁、有限线程、令牌桶和日志轮转先满足当前需求；需要跨主机队列时才考虑 Redis。
 
-讲解时要说明 DeepSeek 已完成少量真实岗位和合成样本验收，但样本很小；平台发送和 Docker 尚未验收，不能把设计能力或小样本测试包装成生产结果。
+讲解时要说明 DeepSeek 仅完成少量真实岗位和合成样本验收；BOSS 已验证两次默认招呼，Docker/PostgreSQL 已完成临时隔离部署与恢复。附件投递、多账号、长期稳定性及生产迁移不在已验证范围内，不能把小样本结果包装成生产规模效果。
 
 本机 DeepSeek 设置入口：app/services/model_settings.py 负责安全保存与测试，app/web/settings.js 负责中文页面交互。个人资料表单仍复用 resume_service.py，不增加新的匹配架构。
 

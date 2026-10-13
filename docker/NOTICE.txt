@@ -1,0 +1,5 @@
+chromium-seccomp.json 来源：Microsoft Playwright v1.63.0
+https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/seccomp_profile.json
+采用 Apache-2.0 许可证，完整条款见 LICENSE.playwright。
+仅把说明性 comment 字段翻译为中文，系统调用规则未修改。
+此文件用于开启容器内 Chromium 沙箱，不开启 privileged，也不授予 SYS_ADMIN。

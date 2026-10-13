@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
+from urllib.request import getproxies
 from app.config import PROJECT_ROOT
 from scripts.system_smoke import LocalDemoClient
 
@@ -36,6 +37,10 @@ def main():
                    "JOBPILOT_HTTP_PORT": str(port), "LLM_BASE_URL": "https://example.invalid/v1",
                    "LLM_MODEL": "", "LLM_API_KEY": "", "LLM_INPUT_PRICE_PER_MILLION": "",
                    "LLM_OUTPUT_PRICE_PER_MILLION": ""}
+    # Windows 已配置的系统代理不会自动传给 Docker CLI；仅给本次子进程补上。
+    for scheme, proxy in getproxies().items():
+        if scheme in {"http", "https"} and proxy:
+            environment.setdefault(scheme.upper() + "_PROXY", proxy)
     with TemporaryDirectory(prefix="jobpilot-compose-") as temporary:
         env_file = Path(temporary) / "empty.env"
         env_file.write_text("", encoding="utf-8")
@@ -63,11 +68,21 @@ def main():
             report["workflow"] = client.complete(run_id)
             report["steps"].append({"name": "checkpoint_resume", "passed": True})
             run("repeat_migration", ["exec", "-T", "app", "python", "-m", "app.db_cli", "upgrade"])
+            # 测试目录只读挂载，不进入正式镜像；专用 PG 用本次临时数据库，不能跳过。
+            run("postgres", ["run", "--rm", "--no-deps", "--volume",
+                f"{PROJECT_ROOT / 'tests'}:/app/tests:ro", "app", "python", "-c",
+                "import os, pytest; os.environ['JOBPILOT_TEST_POSTGRES_URL'] = os.environ['AGENT_DATABASE_URL']; "
+                "raise SystemExit(pytest.main(['tests/integration/test_relational_storage.py', '-q', '-p', 'no:cacheprovider']))"])
             run("browser", ["exec", "-T", "app", "python", "-m", "scripts.browser_smoke"])
             run("evaluation", ["exec", "-T", "app", "python", "-m", "app.evaluation.runner"])
             report["status"] = "passed"
         except Exception as exc:
             report.update(status="failed", error_type=type(exc).__name__)
+            # 清理临时容器前保存故障日志，迁移或健康检查失败后仍能查到原因。
+            try:
+                run("failure_logs", ["logs", "--no-color", "--tail", "100"], timeout=30)
+            except Exception as log_error:
+                report["log_error_type"] = type(log_error).__name__
         finally:
             # project 只能由本函数随机生成，不能传入已有项目名或用户数据卷。
             try:

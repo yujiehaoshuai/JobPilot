@@ -58,14 +58,14 @@ cd D:\JobPilot
 .\.venv\Scripts\python.exe -m app.evaluation.runner
 ```
 
-当前 299 项测试通过，1 项因缺少专用 PostgreSQL 库跳过。另有扩展脚本测试与真实本地 Edge 页面回归，覆盖自动提炼、排序、岗位勾选、批准和取消；原 Phase 0/1 CLI 和旧审批 API 保留。早期严格筛选的教学入口行为不变，新页面使用独立的软条件策略。
+本机全量回归 299 项通过，1 项专用 PostgreSQL 测试在本机命令中跳过；该项已在隔离容器内实际执行，关系存储测试共 8 项全部通过。另有扩展脚本测试与真实本地 Edge 页面回归，覆盖自动提炼、排序、岗位勾选、批准和取消；原 Phase 0/1 CLI 和旧审批 API 保留。早期严格筛选的教学入口行为不变，新页面使用独立的软条件策略。
 
 先读 `resume_service.py` → `ranking_service.py` → `workflow/graph.py`，再看各网站 Adapter 和 `app/web/`。完整目录、学习路线与面试要点见 [代码导读](docs/file-guide.md)。
 
 本次真实牛客验证使用虚构简历：每周 3 天，上海；读取 5 条，保留 2 条上海岗位，分别要求 4 天和 5 天，均完成评分及详细分析。可在“以前的搜索”查看“排序验收同学”。
 
-仍未完成：BOSS 更多搜索条件及长期稳定性验收、附件简历投递及自定义消息、Docker 与 PostgreSQL 本机部署验收。模型提炼与职业方向判断可能有误；当前排序尚无大规模人工标注评估。用户当前收尾范围是两条真实联系和 Docker/PostgreSQL 验收，不再扩展其余功能。
+仍有限制：BOSS 更多搜索条件及长期稳定性、附件简历投递及自定义消息尚未完成；模型提炼与职业方向判断可能有误，当前排序尚无大规模人工标注评估。用户指定的收尾范围——两条真实联系和 Docker/PostgreSQL 实机验收——现已完成，不再扩展其余功能。
 
-Docker Desktop 已于 2026-10-12 安装成功；本机虚拟机平台仍需重启生效，容器和 PostgreSQL 尚未启动验收。重启后打开 Docker Desktop，再运行 `.\.venv\Scripts\python.exe -m scripts.docker_smoke`。详细接续说明见 [验收记录](docs/verification.md)。
+2026-10-13 本机 Docker 完整验收通过：镜像构建、PostgreSQL 迁移、服务重启后的 11 条岗位任务恢复、8 项关系存储测试、开启沙箱的浏览器测试和离线评估均通过。临时容器及数据卷已清理，没有迁移或覆盖个人 SQLite 数据。日常仍双击 **start.cmd**；部署命令见 [Docker 使用说明](docs/demo.md#docker-compose)，复验用 `.\.venv\Scripts\python.exe -m scripts.docker_smoke`。详细证据见 [验收记录](docs/verification.md)。
 
 [安装、运行与 Demo](docs/demo.md) · [架构](docs/architecture.md) · [阶段提交](docs/phases.md) · [验收与限制](docs/verification.md)

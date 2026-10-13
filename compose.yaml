@@ -27,6 +27,9 @@ services:
   app:
     build: .
     init: true
+    # Chromium 沙箱需要用户命名空间；沿用 Playwright 官方 seccomp 规则。
+    security_opt:
+      - seccomp=./docker/chromium-seccomp.json
     ports:
       - "127.0.0.1:${JOBPILOT_HTTP_PORT:-8000}:8000"
     environment:

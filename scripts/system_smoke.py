@@ -3,7 +3,7 @@
 import json
 import time
 from urllib.parse import urlsplit
-from urllib.request import Request, build_opener
+from urllib.request import Request, build_opener, ProxyHandler
 from urllib.error import URLError
 from app.llm.client import NoRedirect
 
@@ -18,7 +18,8 @@ class LocalDemoClient:
                 or parts.query or parts.fragment):
             raise ValueError("验收客户端只允许本机 HTTP 根地址")
         self.base_url, self.token = base_url.rstrip("/"), token
-        self.opener = build_opener(NoRedirect)
+        # 本机验收必须直连，不能把测试凭据或 localhost 请求交给下载镜像的代理。
+        self.opener = build_opener(ProxyHandler({}), NoRedirect)
 
     def call(self, path: str, body=None):
         """接口路径由脚本固定，不接收外部提供的任意 URL。"""

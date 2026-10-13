@@ -1,5 +1,22 @@
 # 独立验收与剩余接手事项
 
+## Docker / PostgreSQL 收尾完成（2026-10-13）
+
+本机 Docker Engine 29.8.2、Compose 5.5.1 已实际启动完整系统。报告为 `data/deployment/jobpilot-check-8246354080374aaf/report.json`，10 个步骤全部通过，退出码 0。该报告及分步日志保留在本机，不提交 Git。
+
+- 镜像构建、PostgreSQL 健康检查、Alembic 首次迁移及重复迁移通过。
+- 通过 HTTP 创建 Mock 任务，停在待审批位置；重启应用后恢复，11 条岗位和 11 条决定完整保存。
+- 容器内关系存储测试 8 项通过，专用 PostgreSQL 检查点及联系图测试实际执行，没有跳过。
+- 非 root 用户运行 Chromium，浏览器沙箱开启；本地合成页面读取、验证码暂停和空白页暂停通过。
+- 离线评估质量门禁通过：JD 技能提取 4/6、技能匹配 6/6、缺失技能 4/6、证据伪造 0/10；不代表真实网站成功率或模型线上准确率。
+- 临时容器和本次数据卷清理通过，独立查询确认无遗留。本机 Python 全量回归为 299 通过、1 跳过；跳过项已由上述容器测试补验。
+
+本轮修复两个部署问题：Docker CLI 未获得本机已有代理，导致镜像认证下载失败；默认容器规则阻止 Chromium 沙箱创建所需的用户命名空间。验收脚本仅向本次子进程传入已有系统代理，本机 HTTP 验收请求始终直连。Compose 使用 [Playwright v1.63.0 官方 seccomp 配置](https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/seccomp_profile.json)，保留许可证，不关闭沙箱，也不启用 privileged 或 SYS_ADMIN。失败时先保留容器日志再清理。
+
+用户指定的两条真实联系和 Docker/PostgreSQL 验收均已完成。本次部署使用虚构 fixtures 和独立测试库，没有搬迁个人 SQLite 数据、发送新消息或调用付费模型。BOSS 真实操作仍通过本机普通浏览器扩展；容器浏览器仅用本地合成页面验收，不能理解成 BOSS 的无界面浏览器已经可用。没有留下常驻生产部署，日常仍从 start.cmd 启动。
+
+以下带日期的记录保留当时状态；当前结论以本节及下方“当前能力与限制”表为准。
+
 ## Docker 已安装，等待系统重启（2026-10-12）
 
 真实联系验收与提示改动提交为 `83354db`。Docker 官方安装包已下载并验证 Docker Inc 的有效数字签名，以当前用户方式安装成功，退出码 0；Docker CLI 29.8.2、Compose 5.5.1 可以运行。安装包和本机报告保存在被忽略的 data/deployment/installers/，不修改 Python 或现有 .venv。
@@ -87,11 +104,11 @@ Python 293 项通过、1 项专用 PostgreSQL 跳过；32 项扩展脚本测试�
 .\.venv\Scripts\python.exe -m scripts.docker_smoke
 ```
 
-脚本创建随机的 `jobpilot-check-...` Compose 项目，使用随机测试凭据和空 env 文件，不读取个人 `.env`，不复用现有数据卷。流程为：配置检查、构建镜像、等待健康、Mock 任务暂停、重启应用、恢复到完成、重复迁移、本地浏览器读取、离线评估。默认生产端口仍是 8000；验收自动选择空闲回环端口，Compose 通过 JOBPILOT_HTTP_PORT 配置端口。
+脚本创建随机的 `jobpilot-check-...` Compose 项目，使用随机测试凭据和空 env 文件，不读取个人 `.env`，不复用现有数据卷。流程为：配置检查、构建镜像、等待健康、Mock 任务暂停、重启应用、恢复到完成、重复迁移、专用 PostgreSQL 测试、本地浏览器读取、离线评估。默认生产端口仍是 8000；验收自动选择空闲回环端口，Compose 通过 JOBPILOT_HTTP_PORT 配置端口。
 
 结束时清理本次项目创建的容器与数据卷，不清理用户的 JobPilot 部署。报告和分步日志保存在 `data/deployment/<随机项目名>/`，不提交 Git。退出码 0 表示完整通过，1 表示某一步失败，2 表示本机未找到 Docker；中断或 Docker 守护进程故障时应查看报告中的清理结果，再按报告的精确项目名处理遗留资源。
 
-本机 2026-10-12 已安装 Docker Desktop，但虚拟机平台需要重启才能生效，因此尚不能宣称镜像或容器已通过。浏览器沙箱不会因验收失败而被关闭。Compose 的健康等待使用官方 [`up --wait`](https://docs.docker.com/reference/cli/docker/compose/up/) 能力。
+本机已于 2026-10-13 完成实际镜像构建和容器验收。若新终端找不到 docker，可先把 `%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin` 加入当前终端的 Path；完整 PowerShell 命令见 demo.md。浏览器使用 docker/chromium-seccomp.json 开启沙箱。Compose 的健康等待使用官方 [`up --wait`](https://docs.docker.com/reference/cli/docker/compose/up/) 能力。
 
 ## CI 配置
 
@@ -99,16 +116,16 @@ Python 293 项通过、1 项专用 PostgreSQL 跳过；32 项扩展脚本测试�
 
 CI 使用 [GitHub 服务容器](https://docs.github.com/en/actions/tutorials/use-containerized-services/create-postgresql-service-containers) 创建专用 PostgreSQL 测试库；Python 版本由官方 [setup-python](https://github.com/actions/setup-python) 固定为 3.12。本地 YAML 和结构检查已通过，但仓库尚未配置远端，本次没有推送或实际运行 GitHub Actions；CI 运行结果仍待确认。
 
-## 需要本人或外部环境接手的内容
+## 当前能力与限制
 
-| 项目 | 当前阻塞 | 下一步与完成依据 |
+| 项目 | 已验证能力 | 限制或后续事项 |
 | --- | --- | --- |
-| BOSS | 普通扩展读取 2 条完整真实岗位，DeepSeek 分析和检查点恢复通过 | 多页、无限滚动和长期稳定性待验收；真实发送仍未启用 |
+| BOSS | 少量真实 DeepSeek 分析、三屏滚动、40 条详情尝试及断线恢复通过；获得 37 条完整岗位 | 更多搜索条件、账号和长期稳定性仍未充分验证 |
 | 牛客 | 简历提炼、软时间评分和前列复核已完成有限真实验收 | 已实现公开分页；登录失效或验证会暂停，搜索范围有明确上限 |
 | 实习僧 Phase 13 | 已通过公开搜索、详情、匹配保存和页面展示；曾遇到 403，可用性会变 | 默认 5 条、可设上限，每个关键词最多 20 页；空结果/重复页停止已有回归；特殊字体不解码，跳过时展示原因，招聘有效期需人工核对 |
 | 真实 LLM | DeepSeek 连接、岗位分析及现有评估门槛已通过 | 扩充真实人工标注样本，核对同义词和泛化技能等边界；不得把小样本结果当成线上准确率 |
-| 真实平台发送 | 页面和收件人契约未验收 | 实现并核对平台操作后逐条 Approve，不能用 Resume 或测试审批代替本人批准 |
-| PostgreSQL / Docker | 本机服务不可用 | 用专用测试库或上述隔离部署脚本完成真实验收 |
+| 真实平台发送 | BOSS 两次获批“立即沟通”通过，Tracker 和检查点读回一致 | 仅网站默认招呼；附件、自定义消息及其他平台发送未实现；每次仍须本人批准 |
+| PostgreSQL / Docker | 实机隔离部署、8 项存储测试、重启恢复和浏览器沙箱通过 | 未迁移个人历史库或留下生产部署；远端 GitHub Actions 尚未运行 |
 | PDF / 扫描简历 | 当前只支持正文、TXT/Markdown/DOCX | 先人工转文字；复杂排版和 OCR 质量不在已验证范围内 |
 
 浏览器无法访问不影响简历整理、Mock 工作流、审批恢复、MCP 和离线 Evaluation；后续从独立模块继续，不反复登录或重建环境。
