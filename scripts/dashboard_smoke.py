@@ -179,6 +179,27 @@ def main():
                 expect(page.locator("#batch-feedback")).to_contain_text("已取消")
                 assert all(a.status == "REJECTED" for a in service.list(synthetic_id))
                 assert service.next() is None
+                # 清理按钮需要本人确认；取消不发 DELETE，批准只清理独立搜索。
+                history_count = len(app.state.runs.list())
+                old_id = next(run["id"] for run in app.state.runs.list() if run["id"] != synthetic_id)
+                page.evaluate("runId=>selectRun(runId)", old_id)
+                expect(page.locator("#run-status")).to_have_text("已完成")
+                old_id = next(run["id"] for run in app.state.runs.list() if run["id"] != synthetic_id)
+                page.evaluate("runId=>selectRun(runId)", old_id)
+                expect(page.locator("#run-status")).to_have_text("已完成")
+                page.once("dialog", lambda dialog: dialog.dismiss())
+                page.locator("#clear-history").click()
+                assert len(app.state.runs.list()) == history_count
+                page.once("dialog", lambda dialog: dialog.accept())
+                page.locator("#clear-history").click()
+                expect(page.locator("#message")).to_contain_text("已清理")
+                expect(page.locator("#results")).to_contain_text("搜索记录已清理")
+                assert page.evaluate("currentRun") is None
+                expect(page.locator("#results")).to_contain_text("搜索记录已清理")
+                assert page.evaluate("currentRun") is None
+                assert len(app.state.runs.list()) == 1
+                assert app.state.runs.get(synthetic_id)["status"] == "COMPLETED"
+                assert len(service.list(synthetic_id)) == 2
                 Path("data").mkdir(exist_ok=True)
                 page.screenshot(path="data/dashboard-smoke.png", full_page=True)
                 page.set_viewport_size({"width":390,"height":844})

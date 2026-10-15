@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 from datetime import UTC, datetime
 from sqlalchemy import (MetaData, Table, Column, String, Text, UniqueConstraint,
-                        ForeignKey, create_engine, select, update, event)
+                        ForeignKey, create_engine, select, update, delete, event)
 from app.exceptions import InvalidTransitionError, ConfirmationRequiredError
 from app.models.action import ActionPayload, PendingAction
 from app.models.application import Application
@@ -267,8 +267,8 @@ class RunStore:
 
     def list(self):
         with self.engine.connect() as conn:
-            rows = conn.execute(select(run_table.c.id).order_by(run_table.c.id)).all()
-        return [self.get(row[0]) for row in rows]
+            rows = conn.execute(select(run_table).order_by(run_table.c.id)).mappings().all()
+        return [{"id": row["id"], "status": row["status"], **json.loads(row["data"])} for row in rows]
 
     def update(self, run_id, status, **changes):
         data = self.get(run_id)
@@ -276,3 +276,52 @@ class RunStore:
         data.update(changes)
         with self.engine.begin() as conn:
             conn.execute(update(run_table).where(run_table.c.id == run_id).values(status=status, data=json.dumps(data)))
+
+    def begin_cleanup(self, run_id):
+        """先保存清理标记。跨数据库清理中断后，只能重试清理，不能重跑搜索。"""
+        with self.engine.begin() as conn:
+            changed = conn.execute(update(run_table).where(run_table.c.id == run_id,
+                run_table.c.status.in_(["COMPLETED", "FAILED", "DELETING"]),
+                ~select(action_table.c.id).where(action_table.c.run_id == run_id).exists(),
+            ).values(status="DELETING")).rowcount
+            return changed == 1
+
+    def finish_cleanup(self, run_id):
+        """删除搜索快照，并清理不再被其他任务或联系记录使用的资料和岗位。"""
+        def references(data):
+            candidates, jobs = set(), set()
+            for state in [data.get("input", {}), data.get("snapshot", {})]:
+                candidate = state.get("candidate") or {}
+                if candidate.get("id"):
+                    candidates.add(candidate["id"])
+                for job in [*state.get("jobs", []), *state.get("discovered_jobs", []),
+                            *(row["job"] for row in state.get("results", [])),
+                            *(row["job"] for row in state.get("rejected_jobs", []))]:
+                    jobs.add(job["id"])
+            return candidates, jobs
+
+        with self.engine.begin() as conn:
+            row = conn.execute(select(run_table).where(run_table.c.id == run_id)).mappings().one()
+            if row["status"] != "DELETING":
+                raise InvalidTransitionError("搜索状态已变化，不能清理")
+            if conn.execute(select(action_table.c.id).where(action_table.c.run_id == run_id)).first():
+                raise InvalidTransitionError("存在联系记录，不能清理这次搜索")
+            candidate_ids, job_ids = references(json.loads(row["data"]))
+            owned_job_ids = set(job_ids)
+            for data in conn.execute(select(run_table.c.data).where(run_table.c.id != run_id)).scalars():
+                kept_candidates, kept_jobs = references(json.loads(data))
+                candidate_ids -= kept_candidates
+                job_ids -= kept_jobs
+            for data in conn.execute(select(action_table.c.data)).scalars():
+                payload = json.loads(data)["payload"]
+                candidate_ids.discard(payload["candidate"]["id"])
+                job_ids.discard(payload["job"]["id"])
+            # 已联系、面试等跟踪记录不属于可丢弃的搜索缓存。
+            conn.execute(delete(application_table).where(application_table.c.candidate_id.in_(candidate_ids),
+                application_table.c.job_id.in_(owned_job_ids),
+                application_table.c.status.in_(["NEW", "ANALYZED", "SHORTLISTED"])))
+            conn.execute(delete(candidate_table).where(candidate_table.c.id.in_(candidate_ids),
+                ~select(application_table.c.id).where(application_table.c.candidate_id == candidate_table.c.id).exists()))
+            conn.execute(delete(job_table).where(job_table.c.id.in_(job_ids),
+                ~select(application_table.c.id).where(application_table.c.job_id == job_table.c.id).exists()))
+            conn.execute(delete(run_table).where(run_table.c.id == run_id, run_table.c.status == "DELETING"))

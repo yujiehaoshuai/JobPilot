@@ -20,7 +20,8 @@ def main():
             def route(request):
                 suffix = "detail" if re.fullmatch(site.detail_pattern, urlsplit(request.request.url).path) else "search"
                 body = Path(f"fixtures/browser/{args.source}_{suffix}.html").read_text("utf-8")
-                request.fulfill(body=body, content_type="text/html")
+                # 合成 HTML 与真实 HTTP 一样明确编码，避免浏览器猜编码产生伪乱码。
+                request.fulfill(body=body, content_type="text/html; charset=utf-8")
             session.context.route("**/*", route)
             jobs = adapter_type(session, limit=1).search_jobs(["Python"])
             assert len(jobs) == 1 and jobs[0].source == args.source

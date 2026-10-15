@@ -235,6 +235,11 @@ class BossBridge:
             values = [json.loads(row[0]) for row in db.execute("SELECT body FROM requests")]
         return [value["id"] for value in values if value["status"] == "ready"]
 
+    def delete_request(self, run_id):
+        """清理指定搜索的采集缓存；不删除助手连接或浏览器登录资料。"""
+        with self.connection() as db:
+            db.execute("DELETE FROM requests WHERE id=?", (self.key(run_id),))
+
     def paused_task(self):
         """新面板也能找到暂停入口，不依赖已关闭页面的 sessionStorage。"""
         with self.connection() as db:

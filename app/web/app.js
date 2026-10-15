@@ -12,6 +12,7 @@ function element(tag, text, className) {
   if (className) result.className = className;
   return result;
 }
+statusNames.DELETING="清理中，请再次点击清理历史";
 function message(text, error=false) {
   byId("message").textContent = text;
   byId("message").className = error ? "error" : "";
@@ -122,6 +123,7 @@ function showState(run) {
 async function refreshRuns() {
   const runs = await (await api("/api/runs")).json();
   byId("runs").replaceChildren();
+  if(!runs.length)byId("runs").append(element("p","暂无搜索记录","muted"));
   for (const run of runs.slice().reverse()) {
     const button = element("button",`${statusNames[run.status]} · ${sourceNames[run.source] || run.source} · ${modeNames[run.mode] || run.mode}\n${run.snapshot?.candidate?.name || run.input?.candidate?.name || run.input?.resume_search?.intent || "已保存的搜索"}`);
     button.addEventListener("click",() => guarded(() => selectRun(run.id))); byId("runs").append(button);
@@ -225,4 +227,19 @@ byId("search-more").onclick=()=>guarded(async()=>{
   await selectRun(id);
 },byId("search-more"));
 byId("refresh").onclick=()=>guarded(refreshRuns,byId("refresh"));
+byId("clear-history").onclick=()=>guarded(async()=>{
+  if(!window.confirm("清理已结束的搜索结果和简历副本？清理后无法恢复。进行中、等待处理和有联系记录的任务会保留。"))return;
+  const result=await(await api("/api/runs/history",{method:"DELETE"})).json();
+  if(result.deleted_ids.includes(currentRun)) {
+    currentRun=null;if(streamController)streamController.abort();
+    batchRun=null;batchActions=[];batchRevision++;clearTimeout(batchTimer);
+    byId("run-status").textContent="尚未开始";byId("run-id").textContent="";
+    byId("run-detail").replaceChildren();
+    byId("results").replaceChildren(element("p","搜索记录已清理，可以开始新的搜索。","muted"));
+    for(const id of ["resume","search-more","batch-controls","batch-panel"])byId(id).hidden=true;
+  }
+  for(const id of result.deleted_ids)bossSelections.delete(id);
+  await refreshRuns();
+  message(`已清理 ${result.deleted_count} 条搜索，保留 ${result.kept_count} 条进行中或有关联记录的任务。`);
+},byId("clear-history"));
 byId("resume").onclick=()=>guarded(async()=>{await api(`/api/runs/${currentRun}/resume`,{method:"POST"}); await selectRun(currentRun);},byId("resume"));

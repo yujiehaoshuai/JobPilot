@@ -1,7 +1,7 @@
 """单工作线程执行同步图，HTTP 请求不等待浏览器或模型返回。"""
 
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
+from threading import RLock
 from time import perf_counter
 from app.observability import EventLog
 from langgraph.types import Command
@@ -16,7 +16,7 @@ class WorkflowWorker:
         self.runs, self.data_dir, self.database_url = runs, data_dir, database_url
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="jobpilot")
         self.futures = {}
-        self.lock = Lock()
+        self.lock = RLock()
         self.events = EventLog(data_dir / "events.jsonl")
         self.metrics = {"runs_started": 0, "runs_completed": 0, "runs_paused": 0, "runs_failed": 0}
 
@@ -29,6 +29,8 @@ class WorkflowWorker:
                 raise InvalidTransitionError("任务正在运行，请勿重复恢复")
             # 返回 202 前先持久化排队状态。否则客户端可能把旧 PAUSED 当成新一轮结果。
             previous = self.runs.get(run_id)
+            if previous["status"] == "DELETING":
+                raise InvalidTransitionError("这条历史正在清理，请再次点击清理历史完成操作")
             self.runs.update(run_id, "QUEUED", error=None)
             try:
                 self.futures[run_id] = self.pool.submit(self.run, run_id)

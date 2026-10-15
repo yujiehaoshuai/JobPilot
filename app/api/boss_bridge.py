@@ -26,7 +26,10 @@ def install_boss_routes(app, data_dir, runs, worker, auth):
     def continue_ready():
         # 只自动继续正在等待浏览器的只读任务；模型失败和审批仍由原有流程处理。
         for run_id in bridge.ready_ids():
-            run = runs.get(run_id)
+            try:
+                run = runs.get(run_id)
+            except KeyError:
+                continue  # 历史清理可能刚好完成，不把旧轮询当服务故障。
             # 兼容旧版本把“再次中断但 next 为空”误标为完成的记录；中断仍在，不能丢任务。
             if (run["status"] in {"PAUSED", "COMPLETED"} and run["input"].get("analysis_only")
                     and any(item.get("kind") == "browser" for item in run.get("interrupts", []))):

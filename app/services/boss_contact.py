@@ -39,6 +39,11 @@ class BossContactService:
         return self._sync([action])[action_id]
 
     def prepare(self, run_id, job_ids):
+        """与历史清理共用锁，避免取完旧结果后才新增联系记录。"""
+        with self.lock:
+            return self._prepare(run_id, job_ids)
+
+    def _prepare(self, run_id, job_ids):
         """从已保存的搜索结果准备操作，忽略前端自报的标题、公司和正文。
 
         同一岗位已有联系记录时复用或跳过，防止再次搜索后重复联系。

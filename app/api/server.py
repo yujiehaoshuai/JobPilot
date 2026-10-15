@@ -194,6 +194,12 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     def list_runs():
         return runs.list()
 
+    @app.delete("/api/runs/history", dependencies=auth)
+    def clear_history():
+        """清理已结束搜索；正在处理或关联联系记录的任务保留。"""
+        from app.services.history_service import clear_search_history
+        return clear_search_history(worker, app.state.boss_contacts, app.state.boss_bridge)
+
     @app.post("/api/search", status_code=202, dependencies=auth)
     def search_resume(body: ResumeSearch):
         """简历提炼在工作线程运行；一个按钮创建可恢复的完整只读任务。"""
@@ -216,12 +222,13 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.post("/api/runs/{run_id}/expand", status_code=202, dependencies=auth)
     def expand_search(run_id: str, body: ExpandSearch):
         """沿用原简历和城市，只多读 50 条；不改变或批准任何联系动作。"""
-        limit = runs.expand_search(run_id, body.expected_limit)
-        try:
-            worker.submit(run_id)
-        except Exception:
-            runs.update(run_id, "FAILED", error="追加搜索尚未启动，请恢复这次任务")
-            raise
+        with worker.lock:
+            limit = runs.expand_search(run_id, body.expected_limit)
+            try:
+                worker.submit(run_id)
+            except Exception:
+                runs.update(run_id, "FAILED", error="追加搜索尚未启动，请恢复这次任务")
+                raise
         return {"id": run_id, "search_limit": limit}
 
     @app.post("/api/resume/extract", dependencies=auth)
@@ -303,7 +310,10 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
             for _ in range(120):
                 if await request.is_disconnected():
                     return
-                value = await asyncio.to_thread(runs.get, run_id)
+                try:
+                    value = await asyncio.to_thread(runs.get, run_id)
+                except KeyError:
+                    return  # 另一页面清理了已结束历史，正常结束只读连接。
                 current = json.dumps(value, ensure_ascii=False)
                 if current != previous:
                     yield "event: state\ndata: " + current + "\n\n"

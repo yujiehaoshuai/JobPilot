@@ -180,5 +180,19 @@ def test_postgres_checkpoint_roundtrip(tmp_path):
         rejected = store.decide(pending.id, pending.digest, False, "postgres-test-human")
         assert sync_contact_workflows(store, [rejected], tmp_path, url)[pending.id]["stage"] == "COMPLETED"
         assert not (tmp_path / "checkpoints.db").exists()
+        # 真实 PG 也要清理业务行和图检查点；旧联系记录仍需可读。
+        from fastapi.testclient import TestClient
+        from app.api.server import create_app
+        from app.workflow.checkpoints import open_checkpointer
+        from tests.integration.test_history_cleanup import finished_search
+        with TestClient(create_app(tmp_path / "cleanup", database_url=url, token="pg-test"),
+                        headers={"X-JobPilot-Token":"pg-test"}) as client:
+            search_id = finished_search(client, candidate_id="pg-cleanup-" + str(uuid4()))
+            result = client.delete("/api/runs/history")
+            assert result.status_code == 200 and search_id in result.json()["deleted_ids"]
+            assert client.get(f"/api/runs/{search_id}").status_code == 404
+        with open_checkpointer(tmp_path, url) as saver:
+            assert saver.get_tuple(graph_config(search_id)) is None
+        assert store.get(pending.id).status == "REJECTED"
     finally:
         connection.dispose()

@@ -1,5 +1,7 @@
 # JobPilot 架构说明
 
+完整逐字段模型、调用链和当前边界见 [项目交接说明](PROJECT_HANDOFF.md)。历史清理由 `app/services/history_service.py:clear_search_history` 协调工作线程锁、联系锁和工作流锁：先把已结束纯搜索标为 DELETING，再删除该线程的检查点和扩展采集缓存，最后删除任务及不共享的数据。中断后再次清理，不允许恢复执行。运行中、待人工处理和有关联联系/跟踪进度的任务保留；不会清空审批表或个人登录目录。
+
 ## 当前工作流
 
 ```mermaid

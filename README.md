@@ -1,5 +1,9 @@
 # JobPilot
 
+“以前的搜索”旁的“清理历史搜索”可删除已结束的只读搜索、检查点和未被其他任务使用的资料。点击后需要确认；进行中、等待人工处理或有关联联系记录的任务会保留。清理中断时再次点击即可继续。
+
+完整学习与交接资料：[项目交接说明](docs/PROJECT_HANDOFF.md)、[关键代码索引](docs/KEY_CODE_INDEX.md)。
+
 粘贴简历，填写一次想找的岗位和城市，点击 **帮我找岗位**。程序会用 AI 提炼经历，扩展相近搜索词，读取实习僧、牛客或 BOSS 岗位，再按匹配参考分排序，对前 5 名补充详细分析。
 
 ## 怎么运行
@@ -59,7 +63,7 @@ cd D:\JobPilot
 .\.venv\Scripts\python.exe -m app.evaluation.runner
 ```
 
-本机全量回归 313 项通过，1 项专用 PostgreSQL 测试在本机命令中跳过；扩展脚本 37 项通过。验证覆盖 PDF 导入、必填城市、按城市搜索、每次增加 50 条、并发点击和重启恢复。容器实测及真实本地 Edge 页面结果见 [验收记录](docs/verification.md)。原 Phase 0/1 CLI 和旧审批 API 保留；早期严格筛选的教学入口行为不变，新页面使用独立的软条件策略。
+本机全量回归 321 项通过，1 项专用 PostgreSQL 测试在本机命令中跳过；扩展脚本 37 项通过。验证覆盖 PDF 导入、必填城市、按城市搜索、每次增加 50 条、并发点击、重启恢复和历史数据清理。容器中 9 项关系存储测试（包括真实 PostgreSQL）全部通过。详细结果见 [验收记录](docs/verification.md)。原 Phase 0/1 CLI 和旧审批 API 保留；早期严格筛选的教学入口行为不变，新页面使用独立的软条件策略。
 
 先读 `resume_service.py` → `ranking_service.py` → `workflow/graph.py`，再看各网站 Adapter 和 `app/web/`。完整目录、学习路线与面试要点见 [代码导读](docs/file-guide.md)。
 
@@ -67,6 +71,6 @@ cd D:\JobPilot
 
 仍有限制：扫描 PDF 识别、BOSS 更多搜索条件及长期稳定性、附件简历投递及自定义消息尚未完成；模型提炼与职业方向判断可能有误，当前排序尚无大规模人工标注评估。先前两条真实联系和 Docker/PostgreSQL 收尾已完成，本次按新增需求补充简历上传与搜索功能。
 
-2026-10-13 本机 Docker 完整验收通过：镜像构建、PostgreSQL 迁移、服务重启后的 11 条岗位任务恢复、8 项关系存储测试、开启沙箱的浏览器测试和离线评估均通过。临时容器及数据卷已清理，没有迁移或覆盖个人 SQLite 数据。日常仍双击 **start.cmd**；部署命令见 [Docker 使用说明](docs/demo.md#docker-compose)，复验用 `.\.venv\Scripts\python.exe -m scripts.docker_smoke`。详细证据见 [验收记录](docs/verification.md)。
+2026-10-15 本机 Docker 完整复验通过：镜像构建、PostgreSQL 迁移、服务重启后的 11 条岗位任务恢复、9 项关系存储测试、开启沙箱的浏览器测试和离线评估均通过。临时容器及数据卷已清理，没有迁移或覆盖个人 SQLite 数据。日常仍双击 **start.cmd**；部署命令见 [Docker 使用说明](docs/demo.md#docker-compose)，复验用 `.\.venv\Scripts\python.exe -m scripts.docker_smoke`。Compose 的真实模型接口配置限制见 [交接说明](docs/PROJECT_HANDOFF.md#17-docker-与从空电脑安装)。
 
 [安装、运行与 Demo](docs/demo.md) · [架构](docs/architecture.md) · [阶段提交](docs/phases.md) · [验收与限制](docs/verification.md)
