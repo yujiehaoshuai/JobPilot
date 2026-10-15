@@ -13,14 +13,14 @@ class ResumeSearch(DomainModel):
 
     text: NonEmptyStr = Field(max_length=30000)
     intent: NonEmptyStr = Field(max_length=200)
-    cities: list[NonEmptyStr] = Field(default_factory=list, max_length=10)
+    cities: list[NonEmptyStr] = Field(min_length=1, max_length=10)
     employment_type: EmploymentType = EmploymentType.INTERN
     available_days_per_week: int | None = Field(default=None, ge=1, le=7, strict=True)
     internship_duration_months: int | None = Field(default=None, ge=1, le=120, strict=True)
     source: Literal["mock", "boss", "nowcoder", "shixiseng"] = "shixiseng"
     mode: Literal["offline", "live"] = "live"
     # 这是一次任务的资源边界，不是声称已经搜索全站。
-    search_limit: int = Field(default=100, ge=1, le=200, strict=True)
+    search_limit: int = Field(default=100, ge=1, le=1000, strict=True)
 
 
 class ResumeExtraction(DomainModel):

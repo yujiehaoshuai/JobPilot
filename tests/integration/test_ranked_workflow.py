@@ -16,7 +16,7 @@ class Source:
 
 
 def incoming():
-    body=ResumeSearch(text="虚构同学在课程项目中使用 Python 编写工具。",intent="后端",source="mock",mode="offline",available_days_per_week=3)
+    body=ResumeSearch(cities=["上海"],text="虚构同学在课程项目中使用 Python 编写工具。",intent="后端",source="mock",mode="offline",available_days_per_week=3)
     return dict(run_id="ranked",source="mock",mode="offline",ranking=True,analysis_only=True,queries=[],resume_search=body.model_dump(mode="json"))
 
 
@@ -28,7 +28,7 @@ def test_top_five_review_resumes_without_repeating_resume_or_finished_jobs(tmp_p
             if task=="deep_review" and calls.count(task)==2: raise LLMError("模拟第二条详细分析失败")
             return super().complete(task,*args)
     jobs=[make_job(id=f"job-{i}",source_job_id=str(i),description="需要 Python",url=f"https://example.com/jobs/{i}",
-                   employment_type="internship",required_days_per_week=5) for i in range(7)]
+                   employment_type="internship",required_days_per_week=5,city="上海") for i in range(7)]
     config=graph_config("ranked")
     with open_graph(tmp_path,adapter=Source(jobs),client=FailReview()) as (graph,actions):
         with pytest.raises(LLMError): graph.invoke(incoming(),config)

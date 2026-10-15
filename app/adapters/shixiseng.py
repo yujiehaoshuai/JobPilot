@@ -19,8 +19,8 @@ def readable(text: str) -> bool:
 class ShixisengAdapter(ReadonlyBrowserAdapter):
     """默认走公开 HTTP；读取失败会明确停止，不切换指纹或尝试绕过限制。"""
 
-    def __init__(self, session, limit=5):
-        super().__init__(session, SHIXISENG, limit)
+    def __init__(self, session, limit=5, cities=None, known_jobs=None, attempted_ids=None):
+        super().__init__(session, SHIXISENG, limit, cities, known_jobs, attempted_ids)
         self.read_warnings: list[str] = []
 
     def parse_links(self, html: str) -> list[str]:

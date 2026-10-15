@@ -10,8 +10,8 @@ from app.enums import EmploymentType
 class NowcoderAdapter(ReadonlyBrowserAdapter):
     """复用可信导航和详情校验，牛客只提供自己的路径与字段。"""
 
-    def __init__(self, session, limit=10):
-        super().__init__(session, NOWCODER, limit)
+    def __init__(self, session, limit=10, cities=None, known_jobs=None, attempted_ids=None):
+        super().__init__(session, NOWCODER, limit, cities, known_jobs, attempted_ids)
         self.current_query, self.current_page = None, 0
 
     def detail_url(self, source_job_id):
@@ -23,13 +23,13 @@ class NowcoderAdapter(ReadonlyBrowserAdapter):
         self.current_query, self.current_page = None, 0
         return self.search_pages(queries, NOWCODER_NEXT)
 
-    def read_search_page(self, query, page):
+    def read_search_page(self, query, page, city=""):
         """牛客重载带 page 的 URL 可能回到首屏，使用网站自己的只读下一页。"""
         if not hasattr(self.session, "read_next"):
-            return super().read_search_page(query, page)  # 本地固定 HTML 测试读取器。
-        if query != self.current_query or page <= self.current_page:
-            html = super().read_search_page(query, 1)
-            self.current_query, self.current_page = query, 1
+            return super().read_search_page(query, page, city)  # 本地固定 HTML 测试读取器。
+        if (query, city) != self.current_query or page <= self.current_page:
+            html = super().read_search_page(query, 1, city)
+            self.current_query, self.current_page = (query, city), 1
         else:
             html = self.session.page.content()
         while self.current_page < page:

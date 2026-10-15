@@ -60,6 +60,36 @@ def test_run_registry(engine):
     assert runs.list()[0]["source"] == "mock"
 
 
+def check_search_expansion(engine, run_id):
+    """SQLite 和真实 PostgreSQL 共用断言：并发点击只能增加一次额度。"""
+    runs = RunStore(engine)
+    runs.create(run_id, {"source": "mock", "input": {"ranking": True, "analysis_only": True,
+        "search_limit": 100, "resume_search": {"cities": ["上海"], "search_limit": 100}},
+        "snapshot": {"search_coverage": {"limit_reached": True}}})
+    runs.update(run_id, "COMPLETED")
+    def expand():
+        try:
+            return runs.expand_search(run_id, 100)
+        except InvalidTransitionError:
+            return None
+    with ThreadPoolExecutor(2) as pool:
+        results = list(pool.map(lambda _: expand(), range(2)))
+    assert results.count(150) == 1 and results.count(None) == 1
+    assert runs.get(run_id)["input"]["resume_search"]["search_limit"] == 150
+    assert runs.get(run_id)["status"] == "QUEUED"
+    # 只有可再增加完整 50 条时才放行，不能悄悄少加或越过总上限。
+    incoming = runs.get(run_id)["input"]
+    incoming["search_limit"] = 980
+    runs.update(run_id, "COMPLETED", input=incoming)
+    with pytest.raises(InvalidTransitionError, match="1000"):
+        runs.expand_search(run_id, 980)
+    assert runs.get(run_id)["input"]["search_limit"] == 980
+
+
+def test_search_expansion_is_atomic(engine):
+    check_search_expansion(engine, "expand")
+
+
 def test_legacy_schema_adoption_preserves_records(tmp_path, candidate):
     """复现旧工作流先建表、API 后迁移；补版本时已有候选人不能丢失。"""
     from app.storage.relational import metadata
@@ -139,6 +169,7 @@ def test_postgres_checkpoint_roundtrip(tmp_path):
     from app.models.action import ActionPayload
     connection = database_engine(url)
     try:
+        check_search_expansion(connection, str(uuid4()))
         store = RelationalActionStore(connection)
         job = action.payload.job.model_copy(update={"id": str(uuid4()), "source": "boss",
             "source_job_id": "postgres-fixture", "url": "https://www.zhipin.com/job_detail/postgres-fixture.html"})

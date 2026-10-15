@@ -1,24 +1,25 @@
 <!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JobPilot · 找适合你的工作</title><link rel="stylesheet" href="/static/style.css">
+<title>JobPilot</title><link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer></script><script src="/static/resume.js" defer></script><script src="/static/boss.js" defer></script><script src="/static/batch.js" defer></script><script src="/static/settings.js" defer></script></head>
 <body>
-<header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong><small>帮你看岗位，也帮你看差距</small></div></div><span id="connection-status" class="badge">正在连接本机程序</span></header>
+<header><div class="brand"><span class="mark">J</span><div><strong>JobPilot</strong></div></div><span id="connection-status" class="badge">正在连接本机程序</span></header>
 <main>
-<section class="intro"><p class="eyebrow">你的求职小助手</p><h1>把简历里会的，和岗位要的对上。</h1><p>粘贴简历，写下想找的岗位。AI 帮你整理经历、比较岗位，把值得优先看的排在前面。</p>
+<section class="intro" aria-label="示例">
 <button id="example" class="secondary">先用虚构资料体验一下</button><span class="hint">不用密钥，不花钱，也不会发送消息。</span></section>
-<div id="message" role="status" aria-live="polite">粘贴简历、填写岗位意向即可开始；也可以先用虚构示例体验。</div>
+<div id="message" role="status" aria-live="polite">上传或粘贴简历，填写岗位意向和城市后开始搜索。</div>
 <div class="layout"><aside class="panel search-panel">
-<h2>找适合你的岗位</h2>
+<h2>岗位搜索</h2>
 <form id="search-form">
 <label for="resume-text">粘贴你的简历</label><textarea id="resume-text" required rows="9" maxlength="30000" placeholder="直接粘贴简历全文。AI 会提炼技能、项目和经历，不需要你逐项填写。"></textarea>
-<label class="file">从 Word 或文本文件读取<input id="resume-file" type="file" accept=".txt,.md,.docx"></label>
+<label class="file">上传简历<input id="resume-file" type="file" accept=".pdf,.docx,.txt,.md"></label>
+<p class="hint">PDF、Word、文本，最大 5 MB。扫描件请先转成文字。</p>
 <p id="profile-notice" class="hint">只写真实经历。AI 提炼结果会附原文，供你核对。</p>
 <label for="query">想找什么岗位</label><input id="query" required maxlength="200" placeholder="例如 Python 后端、AI 应用开发">
 <p class="hint">只填一次。会扩展相近关键词，不要求岗位名称一字不差。</p>
-<div class="row"><div><label for="resume-cities">工作城市（选填）</label><input id="resume-cities" placeholder="如 上海，杭州；不填不限"></div><div><label for="resume-employment">工作类型</label><select id="resume-employment"><option value="internship">实习</option><option value="full_time">全职</option><option value="any">不限</option></select></div></div>
-<p class="hint">填写城市后只保留这些城市的岗位。</p>
+<div class="row"><div><label for="resume-cities">工作城市（必填）</label><input id="resume-cities" required placeholder="如 上海，杭州"></div><div><label for="resume-employment">工作类型</label><select id="resume-employment"><option value="internship">实习</option><option value="full_time">全职</option><option value="any">不限</option></select></div></div>
+<p class="hint">先按所填城市搜索，再核对岗位地点。</p>
 <div class="row" id="availability"><div><label for="resume-days">每周能到岗几天（选填）</label><select id="resume-days"><option value="">按简历，没写则待确认</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div><div><label for="resume-months">能实习几个月（选填）</label><input id="resume-months" type="number" min="1" max="120" step="1" placeholder="按简历，或自行填写"></div></div>
 <p class="hint">时间只影响评分，不直接淘汰。能到岗 3 天，也会保留要求 4、5 天的机会并提醒你。</p>
 <label for="source">去哪里找</label><select id="source"><option value="shixiseng">实习僧</option><option value="nowcoder">牛客</option><option value="boss">BOSS 直聘</option><option value="mock">示例演示 · 免费</option></select>
@@ -42,8 +43,9 @@
 <p id="model-feedback" class="hint" role="status">密钥只保存在本机。保存不调用 AI，测试连接会调用一次。</p>
 </details>
 </aside><div>
-<section class="panel"><div class="row between"><h2>值得优先看的岗位</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">结果自动保存在本机，下次打开还能看。</p>
+<section class="panel"><div class="row between"><h2>搜索结果</h2><span id="run-status" class="badge">尚未开始</span></div><p id="run-id" class="hint">结果自动保存在本机，下次打开还能看。</p>
 <div class="steps"><span>理解简历</span><span>寻找岗位</span><span>比较评分</span><span>复核前几名</span></div><div id="run-detail"></div><button id="resume" class="secondary" hidden>处理好问题，继续这次搜索</button>
+<button id="search-more" class="secondary" hidden>继续搜索（增加 50 条）</button>
 <div id="batch-controls" hidden><p>勾选想联系的岗位，再统一核对。一次最多 20 个，默认不勾选任何岗位。</p><button id="batch-prepare" class="secondary">核对所选岗位，准备批量联系</button></div>
 <div id="results"><div class="empty">你的推荐岗位会出现在这里。<br>每个结果都会告诉你：哪些技能已有经历，哪些还缺少依据。</div></div>
 <div id="batch-panel" hidden><h3>批量联系招聘方</h3><p class="hint">BOSS 本轮执行的是“立即沟通”，不是附件简历投递。下方批准以后才会操作真实账号。</p>

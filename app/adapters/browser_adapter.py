@@ -6,6 +6,7 @@ from urllib.parse import quote, urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 from app.adapters.base import JobSourceAdapter
+from app.adapters.cities import normalize_cities, city_query
 from app.browser.selectors import SiteSpec
 from app.exceptions import JobParseError, SelectorChangedError
 from app.models.job import JobPosting
@@ -21,57 +22,49 @@ class PageReader(Protocol):
 class ReadonlyBrowserAdapter(JobSourceAdapter):
     """平台共用的只读解析与有限分页，不触发沟通或投递按钮。"""
 
-    def __init__(self, session: PageReader, site: SiteSpec, limit: int = 10) -> None:
-        if not 1 <= limit <= 200:
-            raise ValueError("单次搜索上限必须在 1 到 200 之间")
+    def __init__(self, session: PageReader, site: SiteSpec, limit: int = 10, cities=None, known_jobs=None, attempted_ids=None) -> None:
+        if not 1 <= limit <= 1000:
+            raise ValueError("单次搜索上限必须在 1 到 1000 之间")
         self.session, self.site, self.limit = session, site, limit
+        self.cities = normalize_cities(cities)
+        self.known_jobs = {job.source_job_id: job for job in known_jobs or []}
+        self.known_attempted = list(dict.fromkeys([*(attempted_ids or []), *self.known_jobs]))
         self.read_warnings = []
         self.search_coverage = {}
 
     def search_pages(self, queries, next_selector, max_pages=20):
-        """交替读取关键词的公开分页；重复页、末页或资源上限都有明确记录。"""
+        """按城市分配读取额度，避免第一座城市占满其他城市的机会。"""
         queries = list(dict.fromkeys(queries or [""]))[:5]
-        ended, seen, ids = set(), {query: set() for query in queries}, []
-        warnings, pages = [], 0
-        for page in range(1, max_pages + 1):
-            for query in queries:
-                if query in ended:
-                    continue
-                html = self.read_search_page(query, page)
-                pages += 1
-                found = self.parse_links(html)
-                signature = tuple(found)
-                if not found:
-                    ended.add(query)
-                    continue
-                if signature in seen[query]:
-                    warnings.append(f"关键词“{query}”返回重复页，已停止翻页，未确认后续是否还有岗位。")
-                    ended.add(query)
-                    continue
-                seen[query].add(signature)
-                ids.extend(job_id for job_id in found if job_id not in ids)
-                button = BeautifulSoup(html, "html.parser").select_one(next_selector)
-                has_next = button is not None and not button.has_attr("disabled") and button.get("aria-disabled") != "true" and "disabled" not in button.get("class", [])
-                if not has_next:
-                    ended.add(query)
-                if len(ids) >= self.limit:
-                    # 即使正好到末页，也可能有其他关键词尚未读取。
-                    if len(ids) > self.limit or has_next or len(ended) < len(queries):
-                        warnings.append(f"达到本次 {self.limit} 条读取上限，后续岗位尚未读取。")
-                    break
-            if len(ids) >= self.limit or len(ended) == len(queries):
+        cities = self.cities or [""]
+        ids, warnings, pages = list(self.known_attempted), [], 0
+        limit_reached = False
+        for city_index, city in enumerate(cities):
+            remaining = self.limit - len(ids)
+            if remaining <= 0:
+                limit_reached = True
                 break
-        if len(ended) < len(queries) and len(ids) < self.limit:
-            warnings.append(f"达到每个关键词 {max_pages} 页上限，未确认后续全部结果。")
+            # 空城市的未用额度自动留给后面的城市，总详情数不超过本轮上限。
+            quota = (remaining + len(cities) - city_index - 1) // (len(cities) - city_index)
+            found, notes, count, limited = self.collect_city_links(
+                queries, city, next_selector, quota, set(ids), max_pages, 100 - pages)
+            ids.extend(found)
+            warnings.extend(notes)
+            pages += count
+            limit_reached = limit_reached or limited
+            if pages >= 100:
+                warnings.append("本轮已读取 100 个搜索页，其他页面尚未覆盖。")
+                break
         self.read_warnings = warnings
-        self.search_coverage = {"pages": pages, "queries": queries, "complete": not warnings,
-                                "detail_limit": self.limit, "scope": "本轮关键词的公开搜索页"}
+        self.search_coverage = {"pages": pages, "queries": queries, "cities": self.cities,
+            "complete": not warnings, "limit_reached": limit_reached, "attempted_ids": ids,
+            "detail_limit": self.limit, "scope": "本轮城市和关键词的公开搜索页"}
         from app.exceptions import UnreadableJobError, UnavailableJobError
-        jobs = []
-        unreadable = 0
-        for job_id in ids[:self.limit]:
+        jobs, unreadable = [], 0
+        for job_id in ids:
+            if job_id in self.known_attempted and job_id not in self.known_jobs:
+                continue
             try:
-                jobs.append(self.get_job_detail(job_id))
+                jobs.append(self.known_jobs[job_id] if job_id in self.known_jobs else self.get_job_detail(job_id))
             except UnavailableJobError:
                 self.read_warnings.append(f"岗位 {job_id} 已删除或下线，已跳过。")
             except UnreadableJobError:
@@ -81,9 +74,44 @@ class ReadonlyBrowserAdapter(JobSourceAdapter):
             raise UnreadableJobError("找到了岗位链接，但本轮详情全部不可读，未生成任何匹配结论")
         return jobs
 
-    def read_search_page(self, query, page):
+    def collect_city_links(self, queries, city, next_selector, quota, previous, max_pages, page_budget):
+        """同一城市交替搜索关键词；下一页必须继续携带原城市条件。"""
+        ended, seen, ids, warnings, pages = set(), {query: set() for query in queries}, [], [], 0
+        label = f"{city}：" if city else ""
+        for page in range(1, max_pages + 1):
+            for query in queries:
+                if query in ended:
+                    continue
+                html = self.read_search_page(query, page, city)
+                pages += 1
+                found = self.parse_links(html)
+                signature = tuple(found)
+                if not found:
+                    ended.add(query)
+                elif signature in seen[query]:
+                    warnings.append(f"{label}关键词“{query}”返回重复页，已停止翻页。")
+                    ended.add(query)
+                else:
+                    seen[query].add(signature)
+                    ids.extend(job_id for job_id in found if job_id not in ids and job_id not in previous)
+                    button = BeautifulSoup(html, "html.parser").select_one(next_selector)
+                    has_next = button is not None and not button.has_attr("disabled") and button.get("aria-disabled") != "true" and "disabled" not in button.get("class", [])
+                    if not has_next:
+                        ended.add(query)
+                    if len(ids) >= quota:
+                        limited = len(ids) > quota or has_next or len(ended) < len(queries)
+                        if limited:
+                            warnings.append(f"{label}达到本轮 {quota} 条读取上限，可继续扩大搜索。")
+                        return ids[:quota], warnings, pages, limited
+                if pages >= page_budget:
+                    return ids[:quota], warnings + ["搜索页读取次数达到上限。"], pages, False
+            if len(ended) == len(queries):
+                return ids, warnings, pages, False
+        return ids, warnings + [f"{label}达到每个关键词 {max_pages} 页上限。"], pages, False
+
+    def read_search_page(self, query, page, city=""):
         """公开 HTML 直接使用页码；动态页面可在平台 Adapter 中使用只读翻页。"""
-        url = self.site.home + self.site.search_path.format(query=quote(query, safe=""))
+        url = self.site.home + self.site.search_path.format(query=quote(query, safe="")) + city_query(self.site.source, city)
         if page > 1:
             url += f"&page={page}"
         return self.session.read(url, f"{self.site.links}, {self.site.empty}")
@@ -127,8 +155,8 @@ class ReadonlyBrowserAdapter(JobSourceAdapter):
     def search_jobs(self, queries: list[str] | None = None) -> list[JobPosting]:
         """按关键词读取详情；最多五个查询，总岗位数受 limit 限制。"""
         ids = []
-        for query in (queries or [""])[:5]:
-            url = self.site.home + self.site.search_path.format(query=quote(query))
+        for query, city in [(query, city) for city in self.cities or [""] for query in (queries or [""])[:5]]:
+            url = self.site.home + self.site.search_path.format(query=quote(query)) + city_query(self.site.source, city)
             html = self.session.read(url, f"{self.site.links}, {self.site.empty}")
             for job_id in self.parse_links(html):
                 if job_id not in ids:

@@ -9,7 +9,8 @@ from app.adapters.base import JobSourceAdapter
 class SearchArguments(DomainModel):
     """确定查询词与数量上限，防止一次工具请求无限抓取。"""
     queries: list[str] = Field(default_factory=list, max_length=5)
-    limit: int = Field(default=10, ge=1, le=200, strict=True)
+    limit: int = Field(default=10, ge=1, le=1000, strict=True)
+    cities: list[str] = Field(default_factory=list, max_length=10)
 
 
 class DetailArguments(DomainModel):
@@ -33,6 +34,9 @@ class JobTools:
                 raise ValueError("未开放的工具名称")
             values = SCHEMAS[name].model_validate(arguments)
             if name == "search_jobs":
+                if values.cities and hasattr(self.adapter, "cities"):
+                    from app.adapters.cities import normalize_cities
+                    self.adapter.cities = normalize_cities(values.cities)
                 jobs = self.adapter.search_jobs(values.queries)[:values.limit]
             else:
                 jobs = [self.adapter.get_job_detail(values.source_job_id)]

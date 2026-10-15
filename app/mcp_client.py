@@ -16,10 +16,11 @@ from app.exceptions import BrowserPausedError, JobParseError
 class MCPJobAdapter(JobSourceAdapter):
     """每次只读调用启动受控子进程；浏览器登录资料仍持久保存在磁盘。"""
 
-    def __init__(self, source="mock", search_limit: int | None = None):
+    def __init__(self, source="mock", search_limit: int | None = None, cities=None):
         if source not in {"mock", "boss", "nowcoder", "shixiseng"}:
             raise ValueError("未注册的 MCP 岗位来源")
         self.source, self.events = source, []
+        self.cities = cities or []
         self.read_warnings: list[str] = []
         default_limit = 5 if source == "shixiseng" else 50
         self.search_limit = SCHEMAS["search_jobs"].model_validate(
@@ -62,7 +63,7 @@ class MCPJobAdapter(JobSourceAdapter):
                                 "latency_ms": (perf_counter() - start) * 1000})
 
     def search_jobs(self, queries=None):
-        return self.call("search_jobs", {"queries": queries or [], "limit": self.search_limit})
+        return self.call("search_jobs", {"queries": queries or [], "limit": self.search_limit, "cities": self.cities})
 
     def get_job_detail(self, source_job_id):
         return self.call("get_job_detail", {"source_job_id": source_job_id})[0]

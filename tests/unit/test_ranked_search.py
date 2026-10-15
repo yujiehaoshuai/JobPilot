@@ -27,7 +27,7 @@ class FixedClient:
 
 
 def test_ai_resume_preserves_quotes_without_inventing_experience():
-    body=ResumeSearch(text="在课程项目中使用 Python 编写工具。", intent="后端", source="mock", mode="offline")
+    body=ResumeSearch(cities=["上海"],text="在课程项目中使用 Python 编写工具。", intent="后端", source="mock", mode="offline")
     candidate, queries, warnings=analyze_resume(OfflineLLMClient(),body,"resume-id")
     assert candidate.id == "resume-id" and candidate.skills[0].evidence == body.text
     assert candidate.skills[0].level == SkillLevel.PROJECT_EXPERIENCE
@@ -44,12 +44,12 @@ def test_ai_resume_preserves_quotes_without_inventing_experience():
 def test_resume_rejects_fabricated_quote_or_time(update):
     raw=dict(search_queries=["Python"],**update)
     with pytest.raises(StructuredOutputError):
-        analyze_resume(FixedClient(raw),ResumeSearch(text="使用 Python。每周可到岗3天",intent="Python"),"id")
+        analyze_resume(FixedClient(raw),ResumeSearch(cities=["上海"],text="使用 Python。每周可到岗3天",intent="Python"),"id")
 
 
 def test_cutting_a_word_out_of_a_negation_cannot_create_skill():
     raw=dict(search_queries=["Python"],skills=[dict(skill="Python",quote="Python",level="professional")])
-    candidate,_,warnings=analyze_resume(FixedClient(raw),ResumeSearch(text="我不会 Python。",intent="后端"),"id")
+    candidate,_,warnings=analyze_resume(FixedClient(raw),ResumeSearch(cities=["上海"],text="我不会 Python。",intent="后端"),"id")
     assert candidate.skills == [] and warnings
 
 

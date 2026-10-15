@@ -23,7 +23,7 @@ class UnverifiedPlatformExecutor:
 
 @contextmanager
 def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, client=None, database_url=None,
-               transport="direct", search_limit: int | None = None, run_id=None, cities=None):
+               transport="direct", search_limit: int | None = None, run_id=None, cities=None, known_jobs=None, attempted_ids=None):
     """按来源选择公开 HTTP 或浏览器；Mock 默认运行完全离线。"""
     from contextlib import ExitStack
     # 在打开任何平台资源之前检查模型配置；缺配置不能留下半开的浏览器。
@@ -42,11 +42,11 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
                                              search_limit or 100, cities), search_limit=search_limit)
             elif transport == "mcp":
                 from app.mcp_client import MCPJobAdapter
-                adapter = MCPJobAdapter(source, search_limit=search_limit)
+                adapter = MCPJobAdapter(source, search_limit=search_limit, cities=cities)
             elif transport == "direct":
                 from app.adapters.factory import open_adapter
                 from app.tools.jobs import ToolCallingAdapter
-                adapter = ToolCallingAdapter(stack.enter_context(open_adapter(source, limit=search_limit)),
+                adapter = ToolCallingAdapter(stack.enter_context(open_adapter(source, limit=search_limit, cities=cities, known_jobs=known_jobs, attempted_ids=attempted_ids)),
                                              search_limit=search_limit)
             else:
                 raise ValueError("工具连接方式必须为 direct 或 mcp")
@@ -68,5 +68,5 @@ def open_graph(data_dir: Path, *, source="mock", mode="offline", adapter=None, c
 
 
 def graph_config(run_id: str):
-    """同一个 run_id 始终使用同一检查点；上限容纳 50 个岗位的循环。"""
-    return {"configurable": {"thread_id": run_id}, "recursion_limit": 500}
+    """同一个 run_id 始终使用同一检查点；上限容纳扩展搜索后的岗位循环。"""
+    return {"configurable": {"thread_id": run_id}, "recursion_limit": 4000}

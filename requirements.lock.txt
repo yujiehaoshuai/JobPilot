@@ -50,6 +50,7 @@ psycopg==3.3.6
 psycopg-binary==3.3.6
 psycopg-pool==3.3.3
 pycparser==3.0
+pypdf==6.20.1
 pydantic==2.13.5
 pydantic-settings==2.15.0
 pydantic_core==2.46.5

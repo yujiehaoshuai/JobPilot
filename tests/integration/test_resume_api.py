@@ -34,8 +34,25 @@ def test_resume_import_build_and_workflow(tmp_path):
 def test_resume_stream_limit_without_content_length(tmp_path):
     with TestClient(create_app(tmp_path, token="t"), headers={"X-JobPilot-Token": "t"}) as client:
         def chunks():
-            yield b"a" * 600000
-            yield b"a" * 600000
+            yield b"a" * 2600000
+            yield b"a" * 2600000
         result = client.post("/api/resume/extract?format=txt", content=chunks())
         assert result.status_code == 413
         assert client.post("/api/resume/extract?format=docx", content=b"broken").status_code == 422
+
+
+def test_pdf_upload_is_local_and_does_not_start_search(tmp_path):
+    from tests.pdf_samples import resume_pdf
+    data = resume_pdf("虚构简历：使用 Python 开发项目。")
+    # 在结尾加无害填充，覆盖大于旧 1 MB 限制的合法文件上传。
+    data += b"\n%" + b" " * 1_000_000
+    with TestClient(create_app(tmp_path, token="t")) as client:
+        path = "/api/resume/extract?format=pdf"
+        assert client.post(path, content=data).status_code == 401
+        client.headers["X-JobPilot-Token"] = "t"
+        response = client.post(path, content=data)
+        assert response.status_code == 200, response.text
+        assert response.json()["text"] == "虚构简历：使用 Python 开发项目。"
+        assert client.get("/api/runs").json() == []
+        assert not list(tmp_path.rglob("*.pdf"))
+        assert client.post(path, content=resume_pdf(None)).status_code == 422

@@ -235,6 +235,36 @@ class RunStore:
             raise KeyError(run_id)
         return {"id": row["id"], "status": row["status"], **json.loads(row["data"])}
 
+    def expand_search(self, run_id, expected_limit):
+        """仅扩展已完成且触及数量上限的只读搜索，不接受新的简历或筛选条件。"""
+        with self.engine.begin() as conn:
+            row = conn.execute(select(run_table).where(run_table.c.id == run_id)).mappings().first()
+            if row is None:
+                raise KeyError(run_id)
+            data = json.loads(row["data"])
+            incoming, snapshot = data["input"], data.get("snapshot", {})
+            limit = incoming.get("search_limit", 100)
+            if (row["status"] != "COMPLETED" or not incoming.get("ranking")
+                    or not incoming.get("analysis_only") or limit != expected_limit):
+                raise InvalidTransitionError("搜索状态或额度已变化，请刷新后再试")
+            coverage = snapshot.get("search_coverage", {})
+            if not coverage.get("limit_reached"):
+                raise InvalidTransitionError("本轮没有触及数量上限；页面或验证问题请先处理，不能直接扩大搜索")
+            if limit + 50 > 1000:
+                raise InvalidTransitionError("单次任务最多 1000 条，请缩小岗位范围后重新搜索")
+            if not incoming.get("resume_search", {}).get("cities"):
+                raise InvalidTransitionError("这条旧任务没有填写城市，请填写城市后重新搜索")
+            limit += 50
+            incoming["search_limit"] = limit
+            incoming["resume_search"]["search_limit"] = limit
+            data.update(error=None, interrupts=[])
+            changed = conn.execute(update(run_table).where(run_table.c.id == run_id,
+                run_table.c.status == "COMPLETED", run_table.c.data == row["data"]).values(
+                    status="QUEUED", data=json.dumps(data))).rowcount
+            if changed != 1:
+                raise InvalidTransitionError("这次搜索已被继续，请刷新查看进度")
+        return limit
+
     def list(self):
         with self.engine.connect() as conn:
             rows = conn.execute(select(run_table.c.id).order_by(run_table.c.id)).all()

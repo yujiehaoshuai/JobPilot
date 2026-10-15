@@ -28,7 +28,7 @@ def create_server(source: str):
         try:
             values = SCHEMAS[name].model_validate(arguments)
             limit = values.limit if name == "search_jobs" else None
-            with open_adapter(source, limit=limit) as adapter:
+            with open_adapter(source, limit=limit, cities=values.cities if name == "search_jobs" else None) as adapter:
                 jobs = JobTools(adapter).call(name, arguments)
                 return ToolReply(status="ok", jobs=jobs, warnings=list(getattr(adapter, "read_warnings", [])),
                                  coverage=dict(getattr(adapter, "search_coverage", {})))
@@ -38,9 +38,9 @@ def create_server(source: str):
             return ToolReply(status="error", message="岗位读取失败，请检查页面或来源配置")
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))
-    async def search_jobs(queries: list[str], limit: int = 10) -> ToolReply:
-        """按关键词只读搜索平台岗位，最多返回 200 条并说明覆盖范围。"""
-        return await asyncio.to_thread(call, "search_jobs", {"queries": queries, "limit": limit})
+    async def search_jobs(queries: list[str], limit: int = 10, cities: list[str] | None = None) -> ToolReply:
+        """按关键词只读搜索平台岗位，最多返回 1000 条并说明覆盖范围。"""
+        return await asyncio.to_thread(call, "search_jobs", {"queries": queries, "limit": limit, "cities": cities or []})
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False))
     async def get_job_detail(source_job_id: str) -> ToolReply:

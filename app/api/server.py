@@ -47,6 +47,12 @@ class StartRun(DomainModel):
     search_limit: int | None = Field(default=None, ge=1, le=40, strict=True)
 
 
+class ExpandSearch(DomainModel):
+    """绑定页面看见的额度；重复点击或旧页面不能重复扩大任务。"""
+
+    expected_limit: int = Field(ge=1, le=1000, strict=True)
+
+
 class Decision(DomainModel):
     """每次审批都绑定界面展示的摘要；API 不提供批量默认批准。"""
 
@@ -136,7 +142,7 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
         length = request.headers.get("content-length", "0")
         if not length.isdigit():
             return JSONResponse(status_code=400, content={"detail": "请求长度无效"})
-        if int(length) > 1_000_000:
+        if int(length) > (MAX_UPLOAD_BYTES if request.url.path == "/api/resume/extract" else 1_000_000):
             return JSONResponse(status_code=413, content={"detail": "请求资料过大"})
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
@@ -191,6 +197,10 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
     @app.post("/api/search", status_code=202, dependencies=auth)
     def search_resume(body: ResumeSearch):
         """简历提炼在工作线程运行；一个按钮创建可恢复的完整只读任务。"""
+        from app.adapters.cities import normalize_cities, boss_search_cities
+        body.cities = normalize_cities(body.cities)
+        if body.source == "boss":
+            boss_search_cities(body.cities)
         if body.mode == "live":
             from app.llm.client import create_llm
             create_llm("live")
@@ -203,19 +213,30 @@ def create_app(data_dir: Path | None = None, database_url: str | None = None, to
         worker.submit(run_id)
         return {"id": run_id}
 
+    @app.post("/api/runs/{run_id}/expand", status_code=202, dependencies=auth)
+    def expand_search(run_id: str, body: ExpandSearch):
+        """沿用原简历和城市，只多读 50 条；不改变或批准任何联系动作。"""
+        limit = runs.expand_search(run_id, body.expected_limit)
+        try:
+            worker.submit(run_id)
+        except Exception:
+            runs.update(run_id, "FAILED", error="追加搜索尚未启动，请恢复这次任务")
+            raise
+        return {"id": run_id, "search_limit": limit}
+
     @app.post("/api/resume/extract", dependencies=auth)
-    async def resume_text(request: Request, format: Literal["txt", "docx"]):
+    async def resume_text(request: Request, format: Literal["txt", "docx", "pdf"]):
         """逐块限制上传大小，不依赖客户端声明长度；文件仅在内存处理。"""
         data = bytearray()
         async for chunk in request.stream():
             if len(data) + len(chunk) > MAX_UPLOAD_BYTES:
-                raise HTTPException(413, "简历文件不能超过 1 MB")
+                raise HTTPException(413, "简历文件不能超过 5 MB")
             data.extend(chunk)
         try:
             content = await asyncio.to_thread(extract_resume, bytes(data), format)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
-        return {"text": content, "notice": "请核对正文并逐条确认技能和程度；未读取图片、页眉页脚或批注。"}
+        return {"text": content, "notice": "正文已提取，请核对后开始搜索；图片中的文字不会自动识别。"}
 
     @app.post("/api/resume/profile", dependencies=auth, response_model=CandidateProfile)
     def resume_profile(body: ResumeProfileRequest):

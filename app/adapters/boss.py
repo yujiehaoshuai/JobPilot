@@ -12,8 +12,8 @@ from app.models.job import JobPosting
 class BossAdapter(ReadonlyBrowserAdapter):
     """搜索和详情读取不含发起沟通等副作用。"""
 
-    def __init__(self, session, limit: int = 10):
-        super().__init__(session, BOSS, limit)
+    def __init__(self, session, limit: int = 10, cities=None, known_jobs=None, attempted_ids=None):
+        super().__init__(session, BOSS, limit, cities, known_jobs, attempted_ids)
 
     def detail_url(self, source_job_id: str) -> str:
         if not re.fullmatch(r"[A-Za-z0-9_-]+", source_job_id):
@@ -56,7 +56,8 @@ class BossExtensionAdapter(JobSourceAdapter):
         if value["status"] != "ready":
             raise BrowserPausedError("BOSS 搜索交给普通浏览器助手。请保持助手面板打开；遇到登录或验证时手动完成后点击继续。已读取的岗位会保留。")
         self.read_warnings = value["warnings"]
-        self.search_coverage = dict(pages=value["pages"], queries=value["queries"], complete=value["complete"],
+        self.search_coverage = dict(pages=value["pages"], queries=value["queries"], cities=self.cities, complete=value["complete"],
+                                    limit_reached=value.get("limit_reached", len(value["attempted"]) >= value["limit"]),
                                     detail_limit=value["limit"], scope="普通浏览器可见的 BOSS 搜索页")
         return [JobPosting.model_validate(job) for job in value["jobs"]]
 

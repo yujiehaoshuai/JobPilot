@@ -34,7 +34,9 @@ JobPilot/
 │   │   ├── __init__.py
 │   │   ├── base.py
 │   │   ├── boss.py
+│   │   ├── boss_cities.json
 │   │   ├── browser_adapter.py
+│   │   ├── cities.py
 │   │   ├── factory.py
 │   │   ├── http_reader.py
 │   │   ├── nowcoder.py
@@ -218,6 +220,7 @@ JobPilot/
 │   │   ├── test_relational_storage.py
 │   │   ├── test_ranked_workflow.py
 │   │   ├── test_resume_api.py
+│   │   ├── test_search_expansion.py
 │   │   ├── test_system_recovery.py
 │   │   └── test_workflow.py
 │   ├── unit/
@@ -241,10 +244,12 @@ JobPilot/
 │   │   ├── test_reliability.py
 │   │   ├── test_ranked_search.py
 │   │   ├── test_resume.py
+│   │   ├── test_search_cities.py
 │   │   ├── test_shixiseng_adapter.py
 │   │   ├── test_storage.py
 │   │   └── test_worker_queue.py
-│   └── conftest.py
+│   ├── conftest.py
+│   └── pdf_samples.py
 ├── docker/
 │   ├── chromium-seccomp.json
 │   ├── LICENSE.playwright
@@ -283,12 +288,14 @@ JobPilot/
 | app/services/resume_service.py、app/web/resume.js | 简历正文提取、AI 整理和逐字引用校验 |
 | app/services/action_service.py | 批准消费、未知结果和人工核查 |
 | app/adapters | 平台差异留在数据入口，Mock 保留离线能力 |
+| app/adapters/cities.py、boss_cities.json | 必填城市规范化、网站搜索参数和 BOSS 公开城市编号 |
 | app/browser | 集中选择器、可信 URL、沙箱、资料锁与人工登录 |
 | app/workflow/graph.py | State、节点、条件边、循环、Interrupt |
 | app/workflow/runtime.py | 资源生命周期、Checkpointer 和执行器注入 |
 | app/storage | SQLite 兼容入口和新的关系存储 |
 | migrations | 固定迁移版本，避免修改模型后旧迁移随之变化 |
 | app/api | HTTP 鉴权、单工作线程、状态持久化与 SSE |
+| tests/integration/test_search_expansion.py | 每次增加 50 条、旧结果复用和程序退出后恢复 |
 | app/web | 无前端构建工具的中文工作台 |
 | app/tools、app/mcp_client.py、app/mcp_server.py | 对比进程内函数分派与 MCP 协议传输 |
 | app/evaluation | 合成金标数据、指标范围、恢复场景和用量统计 |

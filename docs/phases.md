@@ -1,5 +1,15 @@
 # 分阶段实施与验收
 
+## 2026-10-15：按新增需求补充简历和搜索
+
+沿用 Phase 0–13 与提交 `5d75136` 的稳定架构，补充 PDF 正文上传、简洁页面、必填城市、网站原生城市条件，以及完成后每次增加 50 条的追加搜索。复用原 Adapter、RunStore、LangGraph、审批和 Tracker，不重建环境或早期阶段；新增依赖仅 pypdf。
+
+313 项 Python 测试通过、1 项专用 PostgreSQL 跳过，37 项扩展测试与真实本地 Edge 页面验收通过。BOSS 上海 2 条尝试获得 1 条完整岗位；牛客获得 2 条完整上海岗位。全部只读、离线评分、0 个联系动作。实习僧本轮 403，停止访问并保留限制说明。追加操作的并发去重、缓存复用和重启恢复已有独立测试；线上大批量追加尚未实测。
+
+本轮提交主题：`feat: add PDF resumes and city-scoped expandable search`。具体部署复验、命令与限制见 verification.md。
+
+新增依赖进入镜像后，Docker 全流程再次实际通过；9 项关系存储测试包含真实 PostgreSQL 的追加额度并发校验，HTTP 暂停任务重启后恢复 11 条岗位。浏览器沙箱、离线评估和临时部署清理通过，没有遗留失败或新增真实联系。
+
 ## 2026-10-13：Phase 6/11 实机部署验收完成
 
 接续安装提交 `e9a27ad`，沿用现有环境完成 Docker Engine 29.8.2 / Compose 5.5.1 实机验收。修复下载代理继承和容器 Chromium 沙箱所需 seccomp 配置，增加容器内专用 PostgreSQL 测试及失败日志保存。本轮提交主题为 `fix: verify PostgreSQL deployment and sandboxed container browser`。

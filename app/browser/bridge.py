@@ -43,6 +43,7 @@ class ScrollSample(DomainModel):
 class SearchPageSample(DomainModel):
     """只保存公开岗位编号，供验证续页是否真的带来新岗位。"""
 
+    city: str = Field(default="", max_length=40)
     query_index: int = Field(ge=0,le=4)
     page_number: int = Field(ge=1,le=20)
     ids: list[Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,200}$")]] = Field(max_length=200)
@@ -68,11 +69,12 @@ class BridgeUpdate(DomainModel):
 
     job: BossPageDetail | None = None
     skipped_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,200}$")
-    pages: int = Field(default=0, ge=0, le=100, strict=True)
+    pages: int = Field(default=0, ge=0, le=10000, strict=True)
     warning: str = Field(default="", max_length=300)
     paused: bool = Field(default=False, strict=True)
     finished: bool = Field(default=False, strict=True)
     complete: bool = Field(default=False, strict=True)
+    limit_reached: bool = Field(default=False, strict=True)
     diagnostic: BridgeDiagnostic | None = None
     page_sample: SearchPageSample | None = None
 
@@ -140,15 +142,24 @@ class BossBridge:
         return {"connected": bool(row and time.time() - row[0] < 86400 and time.time() - row[1] < 30)}
 
     def ensure(self, run_id, queries, limit, cities):
+        from app.adapters.cities import boss_search_cities
+        search_cities = boss_search_cities(cities)
         run_id = self.key(run_id)
         with self.connection() as db:
             row = db.execute("SELECT body FROM requests WHERE id=?", (run_id,)).fetchone()
             if row:
-                return json.loads(row[0])
+                value = json.loads(row[0])
+                if limit > value["limit"] and value["status"] == "ready":
+                    # 只能由恢复中的工作流增加额度；旧岗位和尝试编号保持不动。
+                    value.update(limit=limit, status="waiting", owner="", lease=0, complete=False,
+                                 limit_reached=False, warnings=[], message="等待继续搜索")
+                value["search_cities"] = search_cities
+                self.save(db, value)
+                return value
             keywords = list(dict.fromkeys(query.strip()[:80] for query in queries if query.strip()))[:5]
             if not keywords:
                 raise InvalidTransitionError("请填写想找的岗位，再开始 BOSS 搜索")
-            value = dict(id=run_id, queries=keywords, cities=cities,
+            value = dict(id=run_id, queries=keywords, cities=cities, search_cities=search_cities, limit_reached=False,
                          limit=limit, status="waiting", owner="", lease=0, jobs=[], attempted=[],
                          pages=0, warnings=[], complete=False, message="等待 BOSS 助手读取岗位")
             self.save(db, value)
@@ -166,6 +177,8 @@ class BossBridge:
                 value = json.loads(row[0])
                 if value["status"] == "waiting" or value["status"] == "reading" and (
                         value["owner"] == owner or value["lease"] < time.time()):
+                    from app.adapters.cities import boss_search_cities
+                    value["search_cities"] = boss_search_cities(value.get("cities", []))
                     value.update(status="reading", owner=owner, lease=time.time() + 60)
                     self.save(db, value)
                     return value
@@ -203,7 +216,8 @@ class BossBridge:
             if update.paused:
                 value.update(status="paused", message=update.warning or "请在 BOSS 页面完成登录或验证，然后继续")
             elif update.finished:
-                value.update(status="ready", complete=update.complete and not value["warnings"], message="岗位已收到，正在匹配")
+                value.update(status="ready", complete=update.complete and not value["warnings"],
+                             limit_reached=update.limit_reached, message="岗位已收到，正在匹配")
             self.save(db, value)
         return value
 

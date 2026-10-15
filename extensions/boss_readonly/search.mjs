@@ -6,7 +6,8 @@ import {searchUrl, readableUrl} from "./core.mjs";
 export async function collectSearch(api, task, config, save, options={}) {
   const observe = options.observe || observeTab;
   const attempted = new Set(task.attempted);
-  let pages = task.pages, searchTab, detailTab, complete = true;
+  let pages = task.pages, searchTab, detailTab, complete = true, limitReached = false;
+  const firstPage = pages;
   const collected = new Map();
   const progress = async value => save({pages, ...value});
   const checkStop = () => { if(options.stopped?.())throw new Error("已暂停读取。点击继续后会跳过已保存的岗位。"); };
@@ -31,19 +32,26 @@ export async function collectSearch(api, task, config, save, options={}) {
   try {
     // 不接管用户已有标签页。详情页等有岗位链接后才创建，避免留下无用空白页。
     searchTab = await api.tabs.create({url:"about:blank",active:true});
-    searchQueries: for(const query of task.queries) {
+    if(task.cities?.length && !task.search_cities?.length)throw new Error("城市条件未传给助手，请更新本机程序和助手后重试。");
+    const cities = task.search_cities?.length ? task.search_cities : [{name:"",code:""}];
+    for(const [cityIndex, city] of cities.entries()) {
+      const remaining = task.limit - attempted.size - collected.size;
+      if(remaining<=0){limitReached=true;complete=false;break;}
+      const cityEnd = collected.size + Math.ceil(remaining / (cities.length-cityIndex));
+      const label = city.name ? `${city.name} · ` : "";
+      searchQueries: for(const query of task.queries) {
       checkStop();
       const signatures = new Set();
-      let result = await read(searchTab.id, searchUrl(query, config.site));
+      let result = await read(searchTab.id, searchUrl(query, config.site, city.code));
       for(let pageNumber=1; pageNumber<=20; pageNumber++) {
         pages++;
-        options.onProgress?.(`搜索“${query}”：第 ${pageNumber} 页，已处理 ${attempted.size} 条岗位。`);
+        options.onProgress?.(`搜索 ${label}“${query}”：第 ${pageNumber} 页，已处理 ${attempted.size} 条岗位。`);
         const links = result.privateLinks.filter(item=>readableUrl(item.navigation_url));
         if(!links.length) {
           if(!result.page?.empty)throw new Error("页面没有读到岗位，也没有明确的空结果提示。请检查登录状态或页面结构。");
           await progress({});break;
         }
-        await progress({page_sample:{query_index:task.queries.indexOf(query),page_number:pageNumber,
+        await progress({page_sample:{city:city.name,query_index:task.queries.indexOf(query),page_number:pageNumber,
           ids:links.map(link=>new URL(link.url).pathname.match(/\/job_detail\/([A-Za-z0-9_-]+)\.html$/)?.[1]).filter(Boolean),
           continuation:result.page?.next_state||"unknown",scroll:result.page?.scroll||[]}});
         const signature = links.map(item=>item.url).sort().join("|");
@@ -54,13 +62,22 @@ export async function collectSearch(api, task, config, save, options={}) {
         for(const link of links) {
           const id = new URL(link.url).pathname.match(/\/job_detail\/([A-Za-z0-9_-]+)\.html$/)?.[1];
           if(!id || attempted.has(id))continue;
-          if(attempted.size+collected.size>=task.limit)break;
+          if(collected.size>=cityEnd)break;
           collected.set(id,link);
         }
-        if(attempted.size+collected.size>=task.limit) {
-          complete=false;
-          await progress({warning:`达到本次 ${task.limit} 条读取上限，可能还有未读取的岗位。`});
+        if(collected.size>=cityEnd) {
+          const unread = links.some(link=>{
+            const id=new URL(link.url).pathname.match(/\/job_detail\/([A-Za-z0-9_-]+)\.html$/)?.[1];
+            return id && !attempted.has(id) && !collected.has(id);
+          });
+          if(unread || result.page?.next_state!=="end" || query!==task.queries.at(-1)) {
+            complete=false;limitReached=true;
+            await progress({warning:`${label}达到本轮读取上限，可继续增加 50 条。`});
+          }
           break searchQueries;
+        }
+        if(pages-firstPage>=100) {
+          complete=false;await progress({warning:"本轮已读取 100 个搜索页，其他页面尚未覆盖。"});break searchQueries;
         }
         if(result.page?.next_state === "end")break;
         if(!["available","scroll"].includes(result.page?.next_state)) {
@@ -76,6 +93,8 @@ export async function collectSearch(api, task, config, save, options={}) {
         result = await read(searchTab.id);
       }
     }
+      if(pages-firstPage>=100)break;
+    }
     // 先验证列表续页，再读取详情；链接含导航参数，仅在当前面板内存中保留。
     for(const [id,link] of collected) {
       if(!detailTab)detailTab=await api.tabs.create({url:"about:blank",active:false});
@@ -90,10 +109,10 @@ export async function collectSearch(api, task, config, save, options={}) {
       attempted.add(id);
       options.onProgress?.(`已处理 ${attempted.size} 条岗位，正在保存。`);
     }
-    await progress({finished:true,complete});
+    await progress({finished:true,complete,limit_reached:limitReached});
   } catch(error) {
     // 网站验证和结构变化不重试；保留浏览器页面、已收到的岗位以及人工处理提示。
-    const message = error instanceof Error && /^(BOSS|页面|岗位|下一页|已暂停)/.test(error.message)
+    const message = error instanceof Error && /^(BOSS|页面|岗位|下一页|已暂停|城市)/.test(error.message)
       ? error.message : "助手读取暂时中断。已保存的岗位会保留，请检查本机连接和 BOSS 页面后继续。";
     await progress({paused:true,warning:message});
     throw new Error(message);

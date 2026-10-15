@@ -89,7 +89,12 @@ function showState(run) {
   if (run.error) byId("run-detail").append(element("p",run.error));
   for (const warning of state.source_warnings || []) byId("run-detail").append(element("p",warning,"hint"));
   for (const item of run.interrupts || []) if (["browser","action_recovery"].includes(item.kind)) byId("run-detail").append(element("p",item.message));
-  byId("resume").hidden = !["PAUSED","FAILED","RUNNING"].includes(run.status) || (run.interrupts||[]).some(item=>item.kind==="approval");
+  byId("resume").hidden = !["PAUSED","FAILED","RUNNING","QUEUED"].includes(run.status) || (run.interrupts||[]).some(item=>item.kind==="approval");
+  const expand = byId("search-more");
+  const limit = run.input?.search_limit || 100;
+  expand.hidden = run.status !== "COMPLETED" || !state.ranking || !state.search_coverage?.limit_reached || limit + 50 > 1000;
+  expand.dataset.limit = String(limit);
+  if(state.ranking)byId("run-detail").append(element("p",`当前读取上限：${limit} 条`,"hint"));
   const results = byId("results"); results.replaceChildren();
   const rows = [...(state.results || [])];
   if (state.match && Object.keys(state.match).length && state.jobs && state.index < state.jobs.length) rows.push({job:state.jobs[state.index],match:state.match,outcome:"分析中"});
@@ -100,7 +105,7 @@ function showState(run) {
     if(run.source==="boss" && run.status==="COMPLETED")addBossSelection(card,run.id,row.job);
     card.append(element("h3",row.job.title), element("p",`${row.job.company} · ${row.job.city || "城市未注明"}`,"hint"));
     const link = element("a","查看岗位原页"); link.href=row.job.url; link.target="_blank"; link.rel="noopener noreferrer"; card.append(link);
-    showMatch(card,row.match);showReview(card,row.deep_review);
+    showMatch(card,row.match);if(index<5)showReview(card,row.deep_review);
     card.append(element("p",row.outcome === "MATCHED" ? "有技能匹配，仍需核对完整要求" : statusNames[row.outcome] || row.outcome,"hint"));
     if(state.ranking&&index>=5)more.append(card);else results.append(card);
   }
@@ -213,5 +218,11 @@ byId("search-form").onsubmit=event=>{
     message("正在理解简历并寻找岗位，结果会陆续出现。");await refreshRuns();await selectRun(result.id);
   },byId("start"));
 };
+byId("search-more").onclick=()=>guarded(async()=>{
+  const id=currentRun;
+  const result=await(await api(`/api/runs/${id}/expand`,{method:"POST",body:JSON.stringify({expected_limit:Number(byId("search-more").dataset.limit)})})).json();
+  message(`读取上限已增加到 ${result.search_limit} 条，已有结果保留。`);
+  await selectRun(id);
+},byId("search-more"));
 byId("refresh").onclick=()=>guarded(refreshRuns,byId("refresh"));
 byId("resume").onclick=()=>guarded(async()=>{await api(`/api/runs/${currentRun}/resume`,{method:"POST"}); await selectRun(currentRun);},byId("resume"));

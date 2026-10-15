@@ -87,7 +87,7 @@ def test_analysis_only_survives_model_failure_and_resume(tmp_path):
 
 
 def test_api_shixiseng_analysis_only_uses_same_pipeline(tmp_path, monkeypatch):
-    def open_source(source, *, limit=None):
+    def open_source(source, *, limit=None, cities=None, known_jobs=None, attempted_ids=None):
         assert source == "shixiseng"
         assert limit is None
         return adapter()

@@ -9,23 +9,25 @@ from xml.etree import ElementTree
 from app.models.candidate import CandidateProfile, CandidateSkill
 from app.models.resume import ResumeProfileRequest
 
-MAX_UPLOAD_BYTES = 1_000_000
+MAX_UPLOAD_BYTES = 5_000_000
 MAX_TEXT_CHARS = 100000
 MAX_XML_BYTES = 4_000_000
 WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
 def extract_resume(data: bytes, format: str) -> str:
-    """支持 UTF-8 文本和 DOCX 正文；不读取图片、链接、批注或执行宏。"""
+    """提取文本、DOCX 或 PDF 正文；文件只在本机内存读取，不执行脚本。"""
     if not data or len(data) > MAX_UPLOAD_BYTES:
-        raise ValueError("简历文件为空或超过 1 MB")
+        raise ValueError("简历文件为空或超过 5 MB")
     try:
         if format == "txt":
             result = data.decode("utf-8-sig")
         elif format == "docx":
             result = extract_docx(data)
+        elif format == "pdf":
+            result = extract_pdf(data)
         else:
-            raise ValueError("当前支持 TXT、Markdown 和 DOCX；PDF 请先复制正文到文本框")
+            raise ValueError("请选择 PDF、Word、TXT 或 Markdown 文件")
     except UnicodeDecodeError:
         raise ValueError("正文编码无法读取，请另存为 UTF-8 文本后导入") from None
     result = result.replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -34,6 +36,39 @@ def extract_resume(data: bytes, format: str) -> str:
     if len(result) > MAX_TEXT_CHARS:
         raise ValueError("简历正文超过十万字，请缩短后再导入")
     return result
+
+
+def extract_pdf(data: bytes) -> str:
+    """逐页提取文字层；无法解析的页明确报错，避免丢失经历后仍继续评分。"""
+    from pypdf import PdfReader
+    from pypdf.errors import PyPdfError
+
+    if not data.startswith(b"%PDF-"):
+        raise ValueError("文件不是有效的 PDF，请重新导出后上传")
+    try:
+        reader = PdfReader(BytesIO(data))
+        if reader.is_encrypted:
+            raise ValueError("PDF 已加密，请用自己的密码打开并另存为未加密文件后上传")
+        if not 1 <= len(reader.pages) <= 20:
+            raise ValueError("PDF 需为 1 到 20 页，请只保留简历正文")
+        paragraphs, total = [], 0
+        for number, page in enumerate(reader.pages, 1):
+            # 先检查解压后的正文流，避免复杂图纸或超大文档进入文字解析。
+            content = page.get_contents()
+            if content is not None and len(content.get_data()) > 4_000_000:
+                raise ValueError("PDF 页面内容过大，请重新导出为较简单的简历文件")
+            text = page.extract_text() or ""
+            if not text.strip():
+                raise ValueError(f"PDF 第 {number} 页没有可读取文字，可能是扫描件或空白页；请先转成文字或删除空白页")
+            if "\ufffd" in text or "\x00" in text:
+                raise ValueError("PDF 字体文字无法可靠读取，请重新导出，或复制正文到文本框")
+            total += len(text)
+            if total > MAX_TEXT_CHARS:
+                raise ValueError("简历正文超过十万字，请缩短后再导入")
+            paragraphs.append(text.strip())
+        return "\n\n".join(paragraphs)
+    except (PyPdfError, OSError, KeyError, TypeError, IndexError, RecursionError):
+        raise ValueError("PDF 已损坏或无法读取，请重新导出后上传") from None
 
 
 def extract_docx(data: bytes) -> str:

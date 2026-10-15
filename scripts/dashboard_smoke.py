@@ -93,7 +93,13 @@ def main():
                 page.unroute("**/api/search",inspect_start)
                 # 一个按钮完成提炼、筛选、评分、前五名复核，没有任何发送动作。
                 page.locator("#example").click()
+                # 示例通过异步请求加载；等表单填好后再清空城市，避免被回填覆盖。
+                expect(page.locator("#source")).to_have_value("mock")
+                expect(page.locator("#query")).to_have_value("Python")
                 page.locator("#resume-cities").fill("")
+                page.locator("#start").click()
+                assert not page.locator("#resume-cities").evaluate("el=>el.checkValidity()")
+                page.locator("#resume-cities").fill("上海，北京，深圳，杭州，广州，成都")
                 page.locator("#resume-days").select_option("3")
                 page.locator("#start").click()
                 expect(page.locator("#run-status")).to_have_text("已完成",timeout=30000)
@@ -105,6 +111,13 @@ def main():
                 assert values==sorted(values,reverse=True)
                 expect(page.locator("#results")).to_contain_text("保留机会")
                 assert page.locator("#actions, #approval-panel").count()==0
+                # PDF 上传走真实 HTTP 和解析器，中文正文填回同一输入框。
+                from tests.pdf_samples import resume_pdf
+                page.locator("#resume-file").set_input_files({"name":"synthetic.pdf","mimeType":"application/pdf",
+                    "buffer":resume_pdf("虚构 PDF 简历：在课程项目中使用 Python 编写工具。")})
+                expect(page.locator("#resume-text")).to_have_value("虚构 PDF 简历：在课程项目中使用 Python 编写工具。")
+                assert "把简历里会的" not in page.locator("body").inner_text()
+                assert "帮你看岗位，也帮你看差距" not in page.locator("body").inner_text()
                 # 上传文件只替换正文，不再要求手填技能。随后再提交一次验证当前原文。
                 page.locator("#resume-file").set_input_files({"name":"synthetic.txt","mimeType":"text/plain",
                     "buffer":"虚构导入：在课程项目中使用 Python 编写测试。".encode("utf-8")})
@@ -112,6 +125,22 @@ def main():
                 page.locator("#start").click()
                 expect(page.locator(".profile-extract")).to_contain_text("虚构导入",timeout=30000)
                 expect(page.locator("#run-status")).to_have_text("已完成",timeout=30000)
+                # 只有数量上限触发继续入口；每次提交页面显示的旧额度，防止双击重复追加。
+                page.evaluate("""() => {
+                    const run={id:currentRun,status:'COMPLETED',source:'mock',mode:'offline',
+                        input:{ranking:true,search_limit:100},snapshot:{ranking:true,results:[],
+                        search_coverage:{limit_reached:true}}};
+                    showState(run);
+                }""")
+                expanded=[]
+                def inspect_expand(route):
+                    expanded.append(route.request.post_data_json)
+                    route.fulfill(status=409,json={"detail":"合成检查已收到追加搜索"})
+                page.route("**/api/runs/*/expand",inspect_expand)
+                page.locator("#search-more").click()
+                expect(page.locator("#message")).to_contain_text("合成检查已收到追加搜索")
+                assert expanded==[{"expected_limit":100}]
+                page.unroute("**/api/runs/*/expand",inspect_expand)
                 # 只在临时库构造 BOSS 结果，验证真实 UI 审批；此浏览器未加载扩展。
                 synthetic = deepcopy(app.state.runs.get(page.evaluate("currentRun")))
                 synthetic_id = str(uuid4())

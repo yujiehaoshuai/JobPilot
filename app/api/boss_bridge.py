@@ -71,4 +71,4 @@ def public_task(value):
     """浏览器只需要搜索条件和已读编号，不发送候选人资料和模型输出。"""
     if value is None:
         return None
-    return {key: value[key] for key in ("id", "queries", "cities", "limit", "status", "attempted", "pages", "message")}
+    return {key: value.get(key) for key in ("id", "queries", "cities", "search_cities", "limit", "status", "attempted", "pages", "message")}

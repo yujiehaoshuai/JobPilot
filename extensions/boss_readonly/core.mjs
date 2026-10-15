@@ -23,10 +23,15 @@ export function safeUrl(value) {
 }
 
 /** 搜索词由 URL 编码处理，禁止把用户输入拼成脚本或任意站点地址。 */
-export function searchUrl(query, site) {
+export function searchUrl(query, site, cityCode="") {
   const keyword = query.trim();
   if (!keyword || keyword.length > 80) throw new Error("关键词需要 1 到 80 个字符");
-  return new URL(site.search_path.replace("{query}", encodeURIComponent(keyword)), site.home).href;
+  const url = new URL(site.search_path.replace("{query}", encodeURIComponent(keyword)), site.home);
+  if(cityCode) {
+    if(!/^\d{9}$/.test(cityCode))throw new Error("城市编号无效，请刷新助手后重新搜索。");
+    url.searchParams.set("city",cityCode);
+  }
+  return url.href;
 }
 
 /** 页面返回的数据需要再次校验；缺少标题、公司或 JD 时不能伪装成完整岗位。 */

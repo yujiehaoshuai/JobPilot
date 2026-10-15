@@ -37,6 +37,12 @@ class WorkflowWorker:
                 self.runs.update(run_id, previous["status"], error=previous.get("error"))
                 raise InvalidTransitionError("工作线程已停止，请重新启动服务后恢复") from None
 
+    @staticmethod
+    def known_jobs(data):
+        """已读详情交回 Adapter 缓存；继续搜索可重读列表，但不重抓这些详情。"""
+        from app.models.job import JobPosting
+        return [JobPosting.model_validate(job) for job in data.get("snapshot", {}).get("discovered_jobs", [])]
+
     def run(self, run_id):
         """暂停和失败均保存可恢复状态；不在服务重启时擅自重放发送。"""
         data = self.runs.get(run_id)
@@ -48,9 +54,19 @@ class WorkflowWorker:
             with open_graph(self.data_dir, source=data["source"], mode=data["mode"],
                             database_url=self.database_url, transport=data.get("transport", "direct"),
                             search_limit=data["input"].get("search_limit"), run_id=run_id,
-                            cities=data["input"].get("resume_search", {}).get("cities", [])) as (graph, actions):
+                            cities=data["input"].get("resume_search", {}).get("cities", []),
+                            known_jobs=self.known_jobs(data),
+                            attempted_ids=data.get("snapshot", {}).get("search_coverage", {}).get("attempted_ids", [])) as (graph, actions):
                 config = graph_config(run_id)
                 state = graph.get_state(config)
+                target = data["input"].get("search_limit") or 0
+                if (state.values and data["input"].get("ranking")
+                        and target > (state.values.get("search_limit") or 100)):
+                    # 写入新额度并从读取节点继续。若此后进程退出，下一次仍接着此检查点。
+                    graph.update_state(config, {"search_limit": target,
+                        "resume_search": data["input"]["resume_search"], "status": "RUNNING"},
+                        as_node="extract_profile")
+                    state = graph.get_state(config)
                 if not state.values:
                     incoming = data["input"]
                 else:

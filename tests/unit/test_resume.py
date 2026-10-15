@@ -34,7 +34,7 @@ def test_text_and_word_preserve_paragraphs_and_table_text():
 
 
 @pytest.mark.parametrize("data, format", [(b"", "txt"), (b"broken", "docx"),
-    (b"\xff\xfe", "txt"), (b"x\x00y", "txt"), (b"pdf", "pdf"), (b"x" * 1000001, "txt")],
+    (b"\xff\xfe", "txt"), (b"x\x00y", "txt"), (b"pdf", "pdf"), (b"x" * 5000001, "txt")],
     ids=["empty", "broken-docx", "encoding", "binary", "unsupported", "oversized"])
 def test_invalid_resume_is_explicit_error(data, format):
     with pytest.raises(ValueError):
@@ -88,3 +88,20 @@ def test_availability_and_employment_are_taken_from_current_input(make_job):
 def test_invalid_availability_is_rejected(updates):
     with pytest.raises(ValidationError):
         request(**updates)
+
+
+def test_pdf_reads_chinese_multiple_pages_and_preserves_evidence():
+    from tests.pdf_samples import resume_pdf
+    first = "虚构同学在课程项目中使用 Python 开发工具。"
+    second = "教育经历：计算机本科；每周可以实习3天。"
+    assert extract_resume(resume_pdf(first, second), "pdf") == first + "\n\n" + second
+
+
+def test_pdf_encrypted_empty_page_and_broken_file_are_explicit_errors():
+    from tests.pdf_samples import resume_pdf
+    for data, message in [(resume_pdf("Python", password="synthetic"), "加密"),
+                          (resume_pdf("Python", None), "第 2 页"),
+                          (resume_pdf(*(["Python"] * 21)), "20 页"),
+                          (b"%PDF-1.7 broken", "损坏")]:
+        with pytest.raises(ValueError, match=message):
+            extract_resume(data, "pdf")

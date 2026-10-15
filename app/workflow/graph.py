@@ -47,6 +47,7 @@ class AgentState(TypedDict, total=False):
     review_index: int
     review_count: int
     search_coverage: dict
+    discovered_jobs: list[dict]
 
 
 def build_graph(adapter, client, actions, approval, tracker, checkpointer):
@@ -83,6 +84,12 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
                 break
             except BrowserPausedError as exc:
                 interrupt({"kind": "browser", "message": str(exc), "source": state["source"]})
+        # 扩大搜索时保留所有已读岗位（含已排除项），只为真正的新岗位调用模型。
+        if state.get("ranking") and state.get("discovered_jobs"):
+            existing = {job["id"]: JobPosting.model_validate(job) for job in state["discovered_jobs"]}
+            existing.update({job.id: job for job in jobs})
+            jobs = list(existing.values())
+        discovered = [job.model_dump(mode="json") for job in jobs]
         profile = candidate(state)
         received = len(jobs)
         accepted, rejected = [], []
@@ -102,8 +109,18 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
             job = job.model_copy(update={"id": tracker.resolve_job_id(job)})
             tracker.track(profile.id, job.id)
             normalized.append(job.model_dump(mode="json"))
+        previous_results = list(state.get("results", [])) if state.get("ranking") else []
+        processed = {row["job"]["id"] for row in previous_results}
+        rejected_ids = {row["job"]["id"] for row in rejected}
+        for row in state.get("rejected_jobs", []) if state.get("ranking") else []:
+            if row["job"]["id"] not in rejected_ids:
+                rejected.append(row)
+                rejected_ids.add(row["job"]["id"])
+        normalized = [row["job"] for row in previous_results] + [
+            job for job in normalized if job["id"] not in processed and job["id"] not in rejected_ids]
         tools = getattr(adapter, "tools", adapter)
-        return {"jobs": normalized, "index": 0, "results": [], "status": "RUNNING",
+        return {"jobs": normalized, "index": len(previous_results), "results": previous_results,
+                "discovered_jobs": discovered, "status": "RUNNING",
                 "discovery": {"received": received, "rejected": len(rejected),
                               "duplicates": len(accepted) - len(jobs), "retained": len(jobs)},
                 "rejected_jobs": rejected,
@@ -195,6 +212,8 @@ def build_graph(adapter, client, actions, approval, tracker, checkpointer):
         from app.services.ranking_service import review_match
         start = len(client.usage)
         rows = list(state["results"])
+        if rows[state["review_index"]].get("deep_review"):
+            return {"review_index": state["review_index"] + 1}
         index = state["review_index"]
         rows[index] = {**rows[index], "deep_review": review_match(client, rows[index])}
         return {"results": rows, "review_index": index + 1,

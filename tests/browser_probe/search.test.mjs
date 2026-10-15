@@ -69,3 +69,23 @@ test("先收集滚动产生的新编号，再读取详情，保留续页证据",
   const samples=f.updates.filter(u=>u.page_sample).map(u=>u.page_sample);
   assert.equal(samples[0].continuation,"scroll");assert.deepEqual(samples[1].ids,["a","b","c"]);
 });
+
+
+test("城市分别传入网站搜索，第一座城市不能占满其他城市额度",async()=>{
+  const f=fixture([{ids:["a","b","c"],next:"scroll"},{ids:["d","e","f"],next:"scroll"}],{limit:4});
+  f.task.cities=["上海","杭州"];
+  f.task.search_cities=[{name:"上海",code:"101020100"},{name:"杭州",code:"101210100"}];
+  await f.run();
+  assert.deepEqual(f.reads.filter(r=>r.tabId===1).map(r=>new URL(r.navigateTo).searchParams.get("city")),["101020100","101210100"]);
+  assert.deepEqual(f.updates.filter(u=>u.job).map(u=>u.job.url),[url("a"),url("b"),url("d"),url("e")]);
+  assert.equal(f.updates.at(-1).limit_reached,true);
+});
+test("城市条件缺失时暂停，不能悄悄全国搜索",async()=>{
+  const f=fixture([{ids:["a"]}]);f.task.cities=["上海"];
+  await assert.rejects(f.run(),/城市条件/);assert.equal(f.reads.length,0);
+});
+test("扩大额度只读新增详情，完整末页不再提示扩大",async()=>{
+  const f=fixture([{ids:["a","b","c"]}],{attempted:["a","b"],limit:52});
+  await f.run();assert.deepEqual(f.updates.filter(u=>u.job).map(u=>u.job.url),[url("c")]);
+  assert.equal(f.updates.at(-1).limit_reached,false);assert.equal(f.updates.at(-1).complete,true);
+});
