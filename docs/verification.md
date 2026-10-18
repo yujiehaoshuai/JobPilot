@@ -1,5 +1,13 @@
 # 独立验收与剩余接手事项
 
+## GitHub 自动检查与恢复时序（2026-10-18）
+
+首次远端运行 `39117713764` 已执行：PostgreSQL 通过，Linux Python 测试 321 项通过，但导航诊断的 Chromium 沙箱启动失败；Windows 有一项立即恢复测试返回 409。旧报告保留，不能把本地通过写成远端通过。
+
+Windows 的问题来自 `WorkflowWorker.run()` 过早保存 PAUSED：图还在关闭资源，Future 仍被视为执行中。现在先退出图资源，再在调度锁内一起公布最终状态并释放执行位置。新增 Event 控制的测试，分别拉长资源关闭和线程返回窗口，保证暂停可立即恢复，同时仍拒绝运行中及排队后的重复点击。历史清理测试也直接按页面操作，不再额外等待内部 Future。
+
+本机全量 **322 passed、1 skipped**（共 323），扩展 **37 passed**。专用 PostgreSQL 仍由独立服务和容器验证。最新远端结果查看 [自动检查列表](https://github.com/yujiehaoshuai/JobPilot/actions/workflows/verify.yml)，以运行对应的提交为准。
+
 ## 历史清理与交接复验（2026-10-15）
 
 新增“清理历史搜索”，确认后清理已结束的只读搜索、检查点、扩展采集缓存及不共享资料。运行中/暂停任务、联系动作及手工跟踪进度保留；失败保留 DELETING，再次清理可继续。页面取消确认不会发送 DELETE，清理当前任务后结果区同步复位。
@@ -138,9 +146,9 @@ Python 293 项通过、1 项专用 PostgreSQL 跳过；32 项扩展脚本测试�
 
 ## CI 配置
 
-`.github/workflows/verify.yml` 包含三个任务：Windows/Linux 的 Python 3.12 离线回归和浏览器检查、临时 PostgreSQL 16 的迁移/批准/跨实例检查点、独立 Compose 全流程。只保存虚构评估报告、测试报告和界面截图，不上传全部 data 或浏览器 Profile。
+`.github/workflows/verify.yml` 包含三个独立任务：Windows + Edge 的 Python 3.12 全量回归、Node 24 扩展测试与浏览器检查；临时 PostgreSQL 16 的迁移/批准/跨实例检查点；独立 Compose 全流程。Linux 桌面浏览器移出默认检查范围，Docker 内的服务端浏览器仍按容器配置验证，不关闭沙箱。只保存虚构评估报告、测试报告和界面截图，不上传全部 data 或浏览器 Profile。
 
-CI 使用 [GitHub 服务容器](https://docs.github.com/en/actions/tutorials/use-containerized-services/create-postgresql-service-containers) 创建专用 PostgreSQL 测试库；Python 版本由官方 [setup-python](https://github.com/actions/setup-python) 固定为 3.12。本地 YAML 和结构检查已通过，但仓库尚未配置远端，本次没有推送或实际运行 GitHub Actions；CI 运行结果仍待确认。
+CI 使用 [GitHub 服务容器](https://docs.github.com/en/actions/tutorials/use-containerized-services/create-postgresql-service-containers) 创建专用 PostgreSQL 测试库；Python 由官方 [setup-python](https://github.com/actions/setup-python) 固定为 3.12，扩展测试用官方 [setup-node](https://github.com/actions/setup-node) 准备 Node 24。主分支代码提交、指向主分支的 PR、手动运行可触发；纯 Markdown/文档变更不启动整套检查。同一分支的新运行会取消旧运行。三个任务不再互相等待，任何真实失败仍让对应任务失败，没有使用忽略错误或自动重试掩盖失败。
 
 ## 当前能力与限制
 
@@ -151,7 +159,7 @@ CI 使用 [GitHub 服务容器](https://docs.github.com/en/actions/tutorials/use
 | 实习僧 Phase 13 | 先前公开搜索、详情、匹配保存和页面展示通过；城市参数有离线回归 | 2026-10-14 返回 403，当前线上城市搜索未验收；特殊字体不解码，招聘有效期需人工核对 |
 | 真实 LLM | DeepSeek 连接、岗位分析及现有评估门槛已通过 | 扩充真实人工标注样本，核对同义词和泛化技能等边界；不得把小样本结果当成线上准确率 |
 | 真实平台发送 | BOSS 两次获批“立即沟通”通过，Tracker 和检查点读回一致 | 仅网站默认招呼；附件、自定义消息及其他平台发送未实现；每次仍须本人批准 |
-| PostgreSQL / Docker | 2026-10-15 新镜像实机部署、9 项存储测试、重启恢复、并发追加和浏览器沙箱通过 | 未迁移个人历史库或留下生产部署；远端 GitHub Actions 尚未运行 |
+| PostgreSQL / Docker | 2026-10-15 新镜像实机部署、9 项存储测试、重启恢复、并发追加和浏览器沙箱通过；2026-10-18 首次远端 PostgreSQL 通过 | 未迁移个人历史库或留下生产部署；后续远端结果以 Actions 对应提交为准 |
 | PDF / 扫描简历 | 文字型 PDF、TXT/Markdown/DOCX 导入通过，中文回填及大小限制已验收 | 扫描件、加密文件和空白页需先处理；未实现 OCR，复杂排版需人工核对 |
 
 浏览器无法访问不影响简历整理、Mock 工作流、审批恢复、MCP 和离线 Evaluation；后续从独立模块继续，不反复登录或重建环境。

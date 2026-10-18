@@ -166,7 +166,7 @@ $env:Path = "$jobpilotDockerBin;$env:Path"
 
 ## 当前限制
 
-独立 Docker 全流程和 CI 说明见 [验收与接手文档](verification.md)。可用 `python -m scripts.docker_smoke` 在 Docker 可用时创建隔离测试部署，避免手动混用个人数据库。本机已完整通过此脚本；GitHub Actions 的远端运行尚未验证。
+独立 Docker 全流程和 CI 说明见 [验收与接手文档](verification.md)。可用 `python -m scripts.docker_smoke` 在 Docker 可用时创建隔离测试部署，避免手动混用个人数据库。本机已完整通过此脚本；GitHub Actions 分别验证 Windows、PostgreSQL 和 Docker，最新状态见 [自动检查列表](https://github.com/yujiehaoshuai/JobPilot/actions/workflows/verify.yml)。
 
 - BOSS 已通过普通浏览器扩展完成有限读取、滚动和断线恢复验收；旧 Playwright 控制路径仍有 about:blank 问题，不再作为真实 BOSS 的接入入口。长期稳定性与更多搜索条件仍需后续观察。
 - 牛客已经过本人登录后的真实搜索、详情和 AI 匹配验收；仍可能因登录过期或网站验证而暂停，不保证一直可用，翻页仍受明确数量和页数上限约束。

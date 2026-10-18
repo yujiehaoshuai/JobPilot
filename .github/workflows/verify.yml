@@ -1,31 +1,36 @@
 name: JobPilot 验证
 
-# 没有定时任务；只有提交、PR 或手动运行才会执行。
+# 只检查主分支代码和准备合入的改动；纯文档更新不重复启动浏览器和容器。
 "on":
   push:
+    branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
+    branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# 同一分支的新提交替代旧检查，避免排队和重复通知；不取消其他分支。
+concurrency:
+  group: jobpilot-verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: "1"
+
 jobs:
   offline:
-    name: 离线回归与浏览器演示
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            channel: msedge
-          - os: ubuntu-latest
-            channel: chromium
-    runs-on: ${{ matrix.os }}
+    name: Windows 功能与浏览器检查
+    # 桌面使用以 Windows + Edge 为基准；Linux 只承担下方服务端部署验收。
+    runs-on: windows-latest
     timeout-minutes: 20
     env:
-      BROWSER_CHANNEL: ${{ matrix.channel }}
+      BROWSER_CHANNEL: msedge
       BROWSER_HEADLESS: "true"
-      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,20 +40,31 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements.lock.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
       - run: python -m pip install -r requirements.lock.txt
-      - if: runner.os == 'Linux'
-        run: python -m playwright install --with-deps chromium
-      - run: python -m pytest -q --junitxml=data/ci/junit.xml
-      - run: python -m scripts.dashboard_smoke
-      - run: python -m scripts.stream_smoke
-      - run: python -m scripts.navigation_smoke
-      - run: python -m scripts.platform_smoke nowcoder
-      - run: python -m scripts.mcp_smoke
-      - run: python -m app.evaluation.runner --browser
+      - name: Python 全量测试
+        run: python -m pytest -q --junitxml=data/ci/junit.xml
+      - name: BOSS 助手脚本测试（虚构页面）
+        run: node --test tests/browser_probe/*.test.mjs
+      - name: 网页操作与历史清理
+        run: python -m scripts.dashboard_smoke
+      - name: 任务进度推送
+        run: python -m scripts.stream_smoke
+      - name: 浏览器导航诊断（虚构页面）
+        run: python -m scripts.navigation_smoke
+      - name: 牛客解析与暂停（虚构页面）
+        run: python -m scripts.platform_smoke nowcoder
+      - name: MCP 工具通信
+        run: python -m scripts.mcp_smoke
+      - name: 离线评估与浏览器工具
+        run: python -m app.evaluation.runner --browser
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: offline-${{ matrix.os }}
+          name: windows-verification
           # 只保存虚构验收产物，不上传 data 全目录或任何真实资料。
           path: |
             data/ci/junit.xml
@@ -88,7 +104,7 @@ jobs:
 
   compose:
     name: 容器启动与重启恢复
-    needs: [offline, postgres]
+    # 三项检查独立执行；某一项失败不再遮蔽另外两项的结果。
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:

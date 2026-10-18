@@ -20,7 +20,7 @@ def finished_search(client, candidate_id=None):
     run_id = client.post("/api/runs", json={"candidate": profile,
         "analysis_only": True, "search_limit": 2}).json()["id"]
     assert wait_for_pause(client, run_id)["status"] == "COMPLETED"
-    client.app.state.worker.futures[run_id].result(timeout=5)
+    # 完成状态现在意味着资源已释放；按用户操作直接清理，不等待内部 Future。
     return run_id
 
 

@@ -85,15 +85,22 @@ class WorkflowWorker:
                 self.metrics["runs_paused" if paused else "runs_completed"] += 1
                 self.events.record("run_finished", run_id=run_id, status=status,
                                    elapsed_ms=(perf_counter() - start) * 1000)
-                self.runs.update(run_id, status, snapshot=state.values, interrupts=interruptions,
-                                 next=list(state.next), error=None)
+                finished = dict(snapshot=state.values, interrupts=interruptions,
+                                next=list(state.next), error=None)
         except Exception as exc:
             self.metrics["runs_failed"] += 1
             self.events.record("run_failed", run_id=run_id, error_type=type(exc).__name__,
                                elapsed_ms=(perf_counter() - start) * 1000)
             # 第三方异常可能含 URL、SQL 参数或请求正文，只记录类型。
             message = str(exc) if isinstance(exc, JobPilotError) else type(exc).__name__
-            self.runs.update(run_id, "FAILED", error=message)
+            status, finished = "FAILED", {"error": message}
+
+        # 图退出后，浏览器、检查点连接和文件锁才真正释放。
+        # 公布暂停/完成与释放调度位置必须共用 submit 的锁：页面一旦看到
+        # 最终状态，就可以立即恢复或清理，不能被尚未返回的 Future 误拦截。
+        with self.lock:
+            self.runs.update(run_id, status, **finished)
+            self.futures.pop(run_id, None)
 
     def close(self):
         self.pool.shutdown(wait=True, cancel_futures=False)

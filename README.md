@@ -63,7 +63,9 @@ cd D:\JobPilot
 .\.venv\Scripts\python.exe -m app.evaluation.runner
 ```
 
-本机全量回归 321 项通过，1 项专用 PostgreSQL 测试在本机命令中跳过；扩展脚本 37 项通过。验证覆盖 PDF 导入、必填城市、按城市搜索、每次增加 50 条、并发点击、重启恢复和历史数据清理。容器中 9 项关系存储测试（包括真实 PostgreSQL）全部通过。详细结果见 [验收记录](docs/verification.md)。原 Phase 0/1 CLI 和旧审批 API 保留；早期严格筛选的教学入口行为不变，新页面使用独立的软条件策略。
+本机全量回归 322 项通过，1 项专用 PostgreSQL 测试在本机命令中跳过；扩展脚本 37 项通过。验证覆盖 PDF 导入、必填城市、按城市搜索、每次增加 50 条、并发点击、重启恢复和历史数据清理。容器中 9 项关系存储测试（包括真实 PostgreSQL）全部通过。详细结果见 [验收记录](docs/verification.md)。原 Phase 0/1 CLI 和旧审批 API 保留；早期严格筛选的教学入口行为不变，新页面使用独立的软条件策略。
+
+GitHub 自动检查分为 Windows 功能与浏览器、PostgreSQL 数据库、Docker 部署三项，独立运行。主分支代码更新、提交合并请求或手动运行时触发；只修改 Markdown/文档时跳过，同一分支的新提交替代旧检查。测试使用虚构岗位和临时数据，无需 BOSS 登录或真实模型密钥。Linux 桌面浏览器不在默认支持范围；容器部署仍单独验收。当前结果见 [GitHub Actions](https://github.com/yujiehaoshuai/JobPilot/actions/workflows/verify.yml)。
 
 先读 `resume_service.py` → `ranking_service.py` → `workflow/graph.py`，再看各网站 Adapter 和 `app/web/`。完整目录、学习路线与面试要点见 [代码导读](docs/file-guide.md)。
 

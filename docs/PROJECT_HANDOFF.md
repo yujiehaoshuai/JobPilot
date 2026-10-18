@@ -1375,6 +1375,8 @@ node --test tests/browser_probe/*.test.mjs
 
 本次交接完成后的实际复验结果：
 
+2026-10-18 补充：当前本机全量为 323 个案例（322 passed、1 skipped），扩展仍为 37/37。新增工作线程资源关闭/暂停发布/立即恢复的确定性回归；GitHub 默认验证 Windows + Edge，并独立验证 PostgreSQL 与 Docker。首次远端失败和修复说明见 [验收记录](verification.md#github-自动检查与恢复时序2026-10-18)，后续远端结果以 Actions 对应提交为准。下表保留 10 月 15 日交接时的原始记录。
+
 | 验证 | 2026-10-15 实际结果 |
 | --- | --- |
 | 全量 pytest | 322 个案例：321 passed、1 skipped；跳过的是专用 PG 场景，在下列容器中通过 |
@@ -1614,7 +1616,7 @@ HTTP restart / checkpoint / mock approval / tracker: OK (11 jobs)
 | Docker 模型配置缺口 | Compose 未传 LLM_API_STYLE，且进程环境覆盖阻止页面保存模型；部署离线已验收，容器真实 DeepSeek 未验收 |
 | 元信息落后 | `pyproject.toml` 的描述仍是早期 Mock-only、版本 0.1.0，API 元信息为另一阶段版本；不代表真实能力 |
 | 健康接口措辞落后 | `/health` 的 real_sending 字段仍保守写 awaiting_platform_validation；以动作记录和验收报告判断真实联系能力 |
-| CI 未远端执行 | `.github/workflows/verify.yml` 已配置并本机检查；没有远端运行记录，不可声称 CI 已全绿 |
+| CI 范围与真实验收 | 2026-10-18 已开始远端运行；默认检查 Windows、PostgreSQL、Docker，结果见 Actions。虚构页面测试不能代替真实扩展登录和网站操作验收 |
 | 无生产运维承诺 | 无自动个人库迁移、备份调度、监控报警平台、HA；本机报告不能替代生产压测 |
 | 许可证待明确 | 根目录没有 LICENSE；交接学习不等于获得第三方依赖或网站内容任意再分发权 |
 
